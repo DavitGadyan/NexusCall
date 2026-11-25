@@ -127,6 +127,16 @@ REQUESTED_TEMPLATES: dict[str, tuple[str, str, str | None]] = {
         "A provider credential is due for rotation.",
         "integrations:manage",
     ),
+    "draft_escalated": (
+        "Email draft escalated",
+        "An AI reply draft was escalated for review by a senior team member.",
+        "emails:drafts:approve",
+    ),
+    "knowledge_review_required": (
+        "Knowledge document needs review",
+        "A knowledge-base document must be reviewed before agents can use it.",
+        "ai:agents:manage",
+    ),
     "generic": ("Notification", "There is an update in your workspace.", None),
 }
 
