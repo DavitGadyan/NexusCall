@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading the per-request nonce makes every page dynamic, so Next.js stamps its scripts with the nonce
+  // from the middleware's CSP (no static HTML without nonces).
+  await headers();
   return (
     <html lang="en">
       <body>{children}</body>
