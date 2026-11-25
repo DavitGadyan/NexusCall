@@ -107,6 +107,15 @@ def render() -> str:
             f"      middlewares: {MIDDLEWARES}",
             "      entryPoints: [web, internal]",
         ]
+    # Server-sent events must not pass the buffering middleware (it buffers response bodies too).
+    out += [
+        "    notification-stream:",
+        '      rule: "Path(`/api/v1/notifications/stream`)"',
+        "      priority: 300",
+        "      service: notification-service",
+        "      middlewares: [secure-headers, rate-limit]",
+        "      entryPoints: [web, internal]",
+    ]
     # CSV imports (10 MB files + multipart overhead) get their own, slightly larger body limit.
     out += [
         "    crm-imports:",

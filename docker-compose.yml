@@ -556,6 +556,8 @@ services:
       S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
       S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+      MAILPIT_SMTP_HOST: mailpit:1025
+      NOTIFICATION_FROM_ADDRESS: no-reply@nexus.local
     volumes:
     - approle:/approle:ro
     depends_on: *id006
@@ -1243,6 +1245,67 @@ services:
       redis: *id010
       keycloak: *id011
       campaign-service:
+        condition: service_started
+    healthcheck:
+      disable: true
+  worker-analytics:
+    restart: unless-stopped
+    read_only: true
+    cap_drop: *id001
+    security_opt: *id002
+    tmpfs: *id003
+    networks: *id004
+    mem_limit: 256m
+    env_file: *id005
+    image: nexuscall/analytics-service:dev
+    profiles:
+    - platform
+    command:
+    - celery
+    - -A
+    - analytics_service.worker:celery_app
+    - worker
+    - -Q
+    - analytics.aggregate
+    - --concurrency
+    - '2'
+    - --without-heartbeat
+    - --without-gossip
+    - --without-mingle
+    environment:
+      SERVICE_NAME: analytics-service
+      ENV: ${ENV:-development}
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      DATABASE_URL: postgresql+asyncpg://analytics_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
+      INSPECTOR_DATABASE_URL: postgresql+asyncpg://analytics_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://analytics_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
+      REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
+      AMQP_URL: amqp://analytics-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
+      OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: svc-analytics-service
+      SERVICE_CLIENT_SECRET: ${KC_DEV_SERVICE_CLIENT_SECRET}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /approle/analytics-service/role_id
+      VAULT_SECRET_ID_FILE: /approle/analytics-service/secret_id
+      FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
+      PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+    volumes:
+    - approle:/approle:ro
+    depends_on:
+      migrate: *id007
+      rabbitmq-bootstrap: *id008
+      vault-bootstrap: *id009
+      redis: *id010
+      keycloak: *id011
+      analytics-service:
         condition: service_started
     healthcheck:
       disable: true

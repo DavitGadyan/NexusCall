@@ -103,6 +103,12 @@ http:
       service: audit-service
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
+    notification-stream:
+      rule: "Path(`/api/v1/notifications/stream`)"
+      priority: 300
+      service: notification-service
+      middlewares: [secure-headers, rate-limit]
+      entryPoints: [web, internal]
     crm-imports:
       rule: "PathPrefix(`/api/v1/imports`)"
       priority: 200

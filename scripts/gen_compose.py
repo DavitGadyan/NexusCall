@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVICES: list[tuple[str, str, str, list[str], dict[str, str]]] = [
     ("tenant-service", "tenant_service", "tenant", ["core"], {}),
     ("audit-service", "audit_service", "audit", ["core"], {}),
-    ("notification-service", "notification_service", "notify", ["core"], {}),
+    ("notification-service", "notification_service", "notify", ["core"],
+     {"MAILPIT_SMTP_HOST": "mailpit:1025", "NOTIFICATION_FROM_ADDRESS": "no-reply@nexus.local"}),
     ("crm-service", "crm_service", "crm", ["crm"], {}),
     ("campaign-service", "campaign_service", "campaign", ["crm"], {}),
     ("ai-agent-service", "ai_agent_service", "agent", ["crm", "calls", "email"], {}),
@@ -42,6 +43,9 @@ WORKERS: list[tuple[str, str, list[str], list[str]]] = [
     ("worker-campaign", "campaign-service",
      ["celery", "-A", "campaign_service.worker", "worker", "-Q", "calls.schedule", "--concurrency", "2",
       "--without-heartbeat", "--without-gossip", "--without-mingle"], ["crm"]),
+    ("worker-analytics", "analytics-service",
+     ["celery", "-A", "analytics_service.worker:celery_app", "worker", "-Q", "analytics.aggregate", "--concurrency",
+      "2", "--without-heartbeat", "--without-gossip", "--without-mingle"], ["platform"]),
 ]
 
 # Outbox relays and event consumers run inside each service process (lifespan tasks) to keep the
