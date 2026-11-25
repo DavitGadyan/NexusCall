@@ -23,3 +23,5 @@ apps/web/playwright-report/
 .DS_Store
 *.log
 *.tsbuildinfo
+# agent worktrees (local only)
+.claude/worktrees/

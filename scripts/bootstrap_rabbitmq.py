@@ -14,6 +14,8 @@ import time
 
 import httpx
 
+from nexus_core.celery_app import QUEUES
+
 API = os.environ.get("RABBITMQ_API", "http://rabbitmq:15672/api")
 ADMIN = (os.environ["RABBITMQ_DEFAULT_USER"], os.environ["RABBITMQ_DEFAULT_PASS"])
 SVC_PASSWORD = os.environ["NEXUS_BROKER_DEV_PASSWORD"]
@@ -70,8 +72,18 @@ def main() -> int:
         c.put(
             f"{API}/permissions/{VHOST}/{ADMIN[0]}", json={"configure": ".*", "write": ".*", "read": ".*"}
         ).raise_for_status()
-        for name, etype in (("nexus.events", "topic"), ("nexus.tasks", "direct"), ("nexus.dlx", "topic")):
+        for name, etype in (("nexus.events", "topic"), ("nexus.tasks", "topic"), ("nexus.dlx", "topic")):
+            existing = c.get(f"{API}/exchanges/{VHOST}/{name}")
+            if existing.status_code == 200 and existing.json().get("type") != etype:
+                c.delete(f"{API}/exchanges/{VHOST}/{name}").raise_for_status()
             c.put(f"{API}/exchanges/{VHOST}/{name}", json={"type": etype, "durable": True}).raise_for_status()
+        # Dead-letter queues for every task queue: <queue>.dlq (quorum), bound to nexus.dlx.
+        for queue in QUEUES:
+            dlq = f"{queue}.dlq"
+            c.put(
+                f"{API}/queues/{VHOST}/{dlq}", json={"durable": True, "arguments": {"x-queue-type": "quorum"}}
+            ).raise_for_status()
+            c.post(f"{API}/bindings/{VHOST}/e/nexus.dlx/q/{dlq}", json={"routing_key": dlq}).raise_for_status()
         c.put(
             f"{API}/policies/{VHOST}/task-dlq",
             json={
@@ -92,7 +104,7 @@ def main() -> int:
                 json={
                     "configure": f"^({own}{task_q}|nexus\\.(events|tasks|dlx))$",
                     "write": f"^({own}{task_q}|nexus\\.(events|tasks|dlx)|amq\\.default)$",
-                    "read": f"^({own}{task_q}|nexus\\.(events|dlx))$",
+                    "read": f"^({own}{task_q}|nexus\\.(events|tasks|dlx))$",
                 },
             ).raise_for_status()
             write_keys = "|".join(["audit\\.event", *[f"{p}(\\..*)?" for p in prefixes]])

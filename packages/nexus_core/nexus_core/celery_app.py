@@ -93,9 +93,28 @@ class NexusTask(Task):  # type: ignore[misc]
         return super().__call__(*args, **kwargs)
 
 
+DLX_EXCHANGE = "nexus.dlx"
+
+
+def declare_dead_letter_queues(broker_url: str, queues: tuple[str, ...] = QUEUES) -> None:
+    """Declare `<queue>.dlq` (quorum) bound to the dead-letter exchange. Idempotent; run at bootstrap."""
+    from kombu import Connection
+
+    dlx = Exchange(DLX_EXCHANGE, type="topic", durable=True)  # type: ignore[no-untyped-call]
+    with Connection(broker_url) as conn:  # type: ignore[no-untyped-call]
+        channel = conn.channel()
+        dlx(channel).declare()
+        for q in queues:
+            Queue(  # type: ignore[no-untyped-call]
+                f"{q}.dlq", dlx, routing_key=f"{q}.dlq", durable=True, queue_arguments={"x-queue-type": "quorum"}
+            )(channel).declare()
+
+
 def create_celery(name: str, broker_url: str, *, queues: tuple[str, ...] = QUEUES) -> Celery:
     app = Celery(name, broker=broker_url, task_cls=NexusTask)
-    tasks_exchange = Exchange("nexus.tasks", type="direct", durable=True)  # type: ignore[no-untyped-call]
+    # Topic exchange with exact routing keys: Celery's native delayed delivery (used for countdown/retry
+    # on quorum queues) does not support direct exchanges.
+    tasks_exchange = Exchange("nexus.tasks", type="topic", durable=True)  # type: ignore[no-untyped-call]
     app.conf.update(
         task_serializer="json",
         accept_content=["json"],
@@ -109,6 +128,9 @@ def create_celery(name: str, broker_url: str, *, queues: tuple[str, ...] = QUEUE
         broker_transport_options={"confirm_publish": True},
         broker_connection_retry_on_startup=True,
         task_default_exchange="nexus.tasks",
+        task_default_exchange_type="topic",
+        task_default_queue_type="quorum",
+        broker_native_delayed_delivery_queue_type="quorum",
         task_default_delivery_mode="persistent",
         task_time_limit=300,
         task_soft_time_limit=240,
@@ -124,8 +146,9 @@ def create_celery(name: str, broker_url: str, *, queues: tuple[str, ...] = QUEUE
                 durable=True,
                 queue_arguments={
                     "x-queue-type": "quorum",
-                    "x-dead-letter-exchange": "nexus.dlx",
+                    "x-dead-letter-exchange": DLX_EXCHANGE,
                     "x-dead-letter-routing-key": f"{q}.dlq",
+                    "x-delivery-limit": 6,
                 },
             )
             for q in queues
