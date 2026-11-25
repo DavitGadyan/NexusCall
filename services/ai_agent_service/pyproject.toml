@@ -9,6 +9,7 @@ dependencies = [
   "nexus-provider-contracts",
   "pypdf>=5.1,<7",
   "pgvector>=0.3,<0.4",
+  "python-multipart>=0.0.18,<0.1",
 ]
 
 [tool.uv.sources]
