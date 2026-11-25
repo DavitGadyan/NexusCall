@@ -31,7 +31,7 @@ ROUTES = {
         "/api/v1/organizations","/api/v1/leads", "/api/v1/contacts", "/api/v1/imports", "/api/v1/segments", "/api/v1/suppressions"],
     "campaign-service": ["/api/v1/campaigns"],
     "call-service": ["/api/v1/calls", "/api/v1/inbound-numbers", "/webhooks/twilio"],
-    "voice-service": ["/media/twilio", "/api/v1/voice"],
+    "voice-service": ["/api/v1/voice"],
     "ai-agent-service": ["/api/v1/ai/agents", "/api/v1/ai/knowledge", "/api/v1/ai/evals", "/api/v1/ai/drafting-runs"],
     "ai-gateway": [
         "/api/v1/platform/ai/providers",
@@ -111,6 +111,15 @@ def render() -> str:
             f"      middlewares: {MIDDLEWARES}",
             "      entryPoints: [web, internal]",
         ]
+    # Twilio Media Streams is a WebSocket: no buffering middleware.
+    out += [
+        "    voice-media:",
+        '      rule: "PathPrefix(`/media/twilio`)"',
+        "      priority: 300",
+        "      service: voice-service",
+        "      middlewares: [secure-headers, rate-limit]",
+        "      entryPoints: [web]",
+    ]
     # Server-sent events must not pass the buffering middleware (it buffers response bodies too).
     out += [
         "    notification-stream:",

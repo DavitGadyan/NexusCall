@@ -32,7 +32,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
     voice-service:
-      rule: "PathPrefix(`/media/twilio`) || PathPrefix(`/api/v1/voice`)"
+      rule: "PathPrefix(`/api/v1/voice`)"
       priority: 100
       service: voice-service
       middlewares: [secure-headers, rate-limit, body-limit]
@@ -103,6 +103,12 @@ http:
       service: audit-service
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
+    voice-media:
+      rule: "PathPrefix(`/media/twilio`)"
+      priority: 300
+      service: voice-service
+      middlewares: [secure-headers, rate-limit]
+      entryPoints: [web]
     notification-stream:
       rule: "Path(`/api/v1/notifications/stream`)"
       priority: 300

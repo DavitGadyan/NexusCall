@@ -3,7 +3,7 @@ name = "nexus-fake-providers"
 version = "0.1.0"
 description = "DEVELOPMENT/TEST ONLY deterministic simulators for Twilio, SES/SNS, Anthropic, Deepgram, ElevenLabs, Google Calendar."
 requires-python = ">=3.12,<3.13"
-dependencies = ["nexus-core", "nexus-provider-contracts"]
+dependencies = ["nexus-core", "nexus-provider-contracts", "websockets>=13,<16"]
 
 [tool.uv.sources]
 nexus-core = { workspace = true }

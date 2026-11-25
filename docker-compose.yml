@@ -133,6 +133,7 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
       NEXUS_BROKER_OPS_PASSWORD: ${NEXUS_BROKER_OPS_PASSWORD}
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
       ENV: ${ENV:-development}
     volumes:
     - ./infra/vault/bootstrap.sh:/bootstrap.sh:ro
@@ -339,6 +340,8 @@ services:
       ENV: development
       SERVICE_NAME: fake-providers
       FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      FAKE_TWILIO_VOICE_URL: http://call-service:8000/webhooks/twilio/voice
+      FAKE_TWILIO_STATUS_URL: http://call-service:8000/webhooks/twilio/status
       NEXUS_PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
   mailpit:
     image: axllent/mailpit:v1.21.8
@@ -868,6 +871,9 @@ services:
       S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
       S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+      WEBHOOK_BASE_URL: http://call-service:8000
+      MEDIA_STREAM_URL: ws://voice-service:8000/media/twilio
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
     volumes:
     - approle:/approle:ro
     depends_on: *id006
@@ -911,6 +917,7 @@ services:
       S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
       S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
     volumes:
     - approle:/approle:ro
     depends_on: *id006
@@ -1248,6 +1255,132 @@ services:
       redis: *id010
       keycloak: *id011
       campaign-service:
+        condition: service_started
+    healthcheck:
+      disable: true
+  worker-calls:
+    restart: unless-stopped
+    read_only: true
+    cap_drop: *id001
+    security_opt: *id002
+    tmpfs: *id003
+    networks: *id004
+    mem_limit: 256m
+    env_file: *id005
+    image: nexuscall/call-service:dev
+    profiles:
+    - calls
+    command:
+    - celery
+    - -A
+    - call_service.worker
+    - worker
+    - -Q
+    - calls.dispatch,calls.provider_callbacks
+    - --concurrency
+    - '4'
+    - --without-heartbeat
+    - --without-gossip
+    - --without-mingle
+    environment:
+      SERVICE_NAME: call-service
+      ENV: ${ENV:-development}
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      DATABASE_URL: postgresql+asyncpg://call_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
+      INSPECTOR_DATABASE_URL: postgresql+asyncpg://call_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://call_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
+      REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
+      AMQP_URL: amqp://call-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
+      OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: svc-call-service
+      SERVICE_CLIENT_SECRET: ${KC_DEV_SERVICE_CLIENT_SECRET}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /approle/call-service/role_id
+      VAULT_SECRET_ID_FILE: /approle/call-service/secret_id
+      FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
+      PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+      WEBHOOK_BASE_URL: http://call-service:8000
+      MEDIA_STREAM_URL: ws://voice-service:8000/media/twilio
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
+    volumes:
+    - approle:/approle:ro
+    depends_on:
+      migrate: *id007
+      rabbitmq-bootstrap: *id008
+      vault-bootstrap: *id009
+      redis: *id010
+      keycloak: *id011
+      call-service:
+        condition: service_started
+    healthcheck:
+      disable: true
+  worker-voice-post:
+    restart: unless-stopped
+    read_only: true
+    cap_drop: *id001
+    security_opt: *id002
+    tmpfs: *id003
+    networks: *id004
+    mem_limit: 256m
+    env_file: *id005
+    image: nexuscall/voice-service:dev
+    profiles:
+    - calls
+    command:
+    - celery
+    - -A
+    - voice_service.worker
+    - worker
+    - -Q
+    - voice.postprocess
+    - --concurrency
+    - '2'
+    - --without-heartbeat
+    - --without-gossip
+    - --without-mingle
+    environment:
+      SERVICE_NAME: voice-service
+      ENV: ${ENV:-development}
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      DATABASE_URL: postgresql+asyncpg://voice_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
+      INSPECTOR_DATABASE_URL: postgresql+asyncpg://voice_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://voice_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
+      REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
+      AMQP_URL: amqp://voice-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
+      OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: svc-voice-service
+      SERVICE_CLIENT_SECRET: ${KC_DEV_SERVICE_CLIENT_SECRET}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /approle/voice-service/role_id
+      VAULT_SECRET_ID_FILE: /approle/voice-service/secret_id
+      FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
+      PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
+    volumes:
+    - approle:/approle:ro
+    depends_on:
+      migrate: *id007
+      rabbitmq-bootstrap: *id008
+      vault-bootstrap: *id009
+      redis: *id010
+      keycloak: *id011
+      voice-service:
         condition: service_started
     healthcheck:
       disable: true

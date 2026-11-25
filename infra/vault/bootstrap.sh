@@ -78,4 +78,9 @@ vault kv put "secret/${E}/platform/notification-service/ses" region="us-east-1" 
 # Broker operations identity used by the platform console (queue view, audited dead-letter replay).
 vault kv put "secret/${E}/platform/tenant-service/rabbitmq-ops" username="nexus-ops" \
   password="${NEXUS_BROKER_OPS_PASSWORD:?NEXUS_BROKER_OPS_PASSWORD must be set (dev only)}" >/dev/null
+# Shared signing secret for Twilio media-stream tokens (call-service issues, voice-service verifies).
+for svc in call-service voice-service; do
+  vault kv put "secret/${E}/platform/${svc}/stream-token" \
+    secret="${STREAM_TOKEN_SECRET:?STREAM_TOKEN_SECRET must be set (dev only)}" >/dev/null
+done
 echo "vault bootstrap complete"
