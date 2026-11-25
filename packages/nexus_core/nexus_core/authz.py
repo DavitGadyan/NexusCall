@@ -204,3 +204,55 @@ def require_service(*allowed_clients: str) -> Callable[..., Awaitable[Principal]
         return principal
 
     return _dep
+
+
+@dataclass(frozen=True, slots=True)
+class InternalContext:
+    """Verified caller + asserted tenant/actor for /internal endpoints.
+
+    The calling service is authenticated (service JWT + `azp` allowlist). The tenant and actor it asserts
+    are used to open an RLS-scoped session; any referenced resource must still be loaded inside that
+    session, so a wrong tenant simply finds nothing (404)."""
+
+    principal: Principal
+    tenant_id: uuid.UUID | None
+    actor: Actor
+
+    def require_tenant(self) -> uuid.UUID:
+        if self.tenant_id is None:
+            raise Forbidden("X-Tenant-ID is required for this internal operation")
+        return self.tenant_id
+
+
+def _parse_actor(raw: str | None, fallback: Actor) -> Actor:
+    if not raw:
+        return fallback
+    kind, _, ident = raw.partition(":")
+    if kind not in ("user", "service", "system") or not ident or len(ident) > 128:
+        raise Forbidden("Invalid X-Actor header")
+    return Actor(type=kind, id=ident)
+
+
+def require_internal(*allowed_clients: str) -> Callable[..., Awaitable[InternalContext]]:
+    """Guard for /internal endpoints that act within a tenant on behalf of an actor."""
+    service_guard = require_service(*allowed_clients)
+
+    # NOTE: `service_guard` is a closure local. With postponed annotations FastAPI cannot resolve
+    # `Annotated[..., Depends(<local>)]`, so the dependency is passed as a default value instead.
+    async def _dep(
+        principal: Principal = Depends(service_guard),
+        x_tenant_id: Annotated[str | None, Header()] = None,
+        x_actor: Annotated[str | None, Header()] = None,
+    ) -> InternalContext:
+        tenant_id: uuid.UUID | None = None
+        if x_tenant_id is not None:
+            try:
+                tenant_id = uuid.UUID(x_tenant_id)
+            except ValueError as exc:
+                raise Forbidden("Invalid tenant identifier") from exc
+            tenant_id_var.set(str(tenant_id))
+        actor = _parse_actor(x_actor, Actor(type="service", id=principal.azp or principal.sub))
+        actor_var.set(str(actor))
+        return InternalContext(principal, tenant_id, actor)
+
+    return _dep

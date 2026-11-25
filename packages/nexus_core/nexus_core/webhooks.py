@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import re
 import time
 from collections.abc import Mapping
 from urllib.parse import urlsplit
@@ -87,28 +88,40 @@ def sns_string_to_sign(message: Mapping[str, str]) -> bytes:
     return "".join(out).encode()
 
 
-def _allowed_cert_url(url: str, allowed_host_suffixes: tuple[str, ...]) -> bool:
+SNS_CERT_HOST_PATTERN = r"^sns\.[a-z0-9-]+\.amazonaws\.com(\.cn)?$"
+
+
+def _allowed_cert_url(url: str, host_pattern: str, *, allow_http: bool = False) -> bool:
+    """The signing certificate must come from an exact, anchored host pattern over HTTPS.
+
+    (A suffix check would accept look-alike hosts such as `evilamazonaws.com`.)"""
     parts = urlsplit(url)
     host = (parts.hostname or "").lower()
+    scheme_ok = parts.scheme == "https" or (allow_http and parts.scheme == "http")
     return (
-        parts.scheme == "https"
+        scheme_ok
+        and not parts.username
+        and not parts.password
         and parts.path.endswith(".pem")
-        and any(host == s or host.endswith("." + s) or host.endswith(s) for s in allowed_host_suffixes)
+        and re.fullmatch(host_pattern, host) is not None
     )
 
 
 class SnsVerifier:
     def __init__(
         self,
-        allowed_cert_hosts: tuple[str, ...] = ("amazonaws.com",),
+        cert_host_pattern: str = SNS_CERT_HOST_PATTERN,
         allowed_topic_arns: frozenset[str] | None = None,
         *,
         verify_tls: bool = True,
+        allow_http: bool = False,
     ) -> None:
-        self._hosts = allowed_cert_hosts
+        """`allow_http` exists only for the local fake SNS simulator; never enable it with real AWS."""
+        self._host_pattern = cert_host_pattern
         self._topics = allowed_topic_arns
         self._certs: dict[str, rsa.RSAPublicKey] = {}
         self._verify_tls = verify_tls
+        self._allow_http = allow_http
 
     async def _public_key(self, url: str) -> rsa.RSAPublicKey:
         if url not in self._certs:
@@ -123,7 +136,7 @@ class SnsVerifier:
 
     async def verify(self, message: Mapping[str, str], *, tolerance: int = 3600) -> None:
         cert_url = message.get("SigningCertURL") or message.get("SigningCertUrl") or ""
-        if not _allowed_cert_url(cert_url, self._hosts):
+        if not _allowed_cert_url(cert_url, self._host_pattern, allow_http=self._allow_http):
             raise WebhookVerificationError("SNS signing certificate URL is not allowed")
         if self._topics is not None and message.get("TopicArn") not in self._topics:
             raise WebhookVerificationError("SNS topic is not allowed")

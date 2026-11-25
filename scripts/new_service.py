@@ -131,7 +131,7 @@ app = create_app()
 FILES["alembic.ini"] = """[alembic]
 script_location = %(here)s/migrations
 prepend_sys_path = .
-version_path_separator = os
+path_separator = os
 
 [loggers]
 keys = root

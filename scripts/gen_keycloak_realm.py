@@ -247,7 +247,17 @@ def realm() -> dict:
             "username": "service-account-svc-tenant-service",
             "enabled": True,
             "serviceAccountClientId": "svc-tenant-service",
-            "clientRoles": {"realm-management": ["manage-users", "view-users", "query-users", "view-events", "manage-clients", "view-clients", "view-realm"]},
+            "clientRoles": {
+                "realm-management": [
+                    "manage-users",
+                    "view-users",
+                    "query-users",
+                    "view-events",
+                    "manage-clients",
+                    "view-clients",
+                    "view-realm",
+                ]
+            },
             "realmRoles": ["default-roles-nexus"],
         }
     )

@@ -40,6 +40,7 @@ def outbox_table(metadata: MetaData) -> Table:
         Column("attempts", Integer, nullable=False, server_default=text("0")),
         Column("last_error", Text, nullable=True),
         Index("ix_outbox_unpublished", "id", postgresql_where=text("published_at IS NULL")),
+        comment="platform_scoped: transport table, ids-only payloads, drained by the relay",
     )
 
 
@@ -53,6 +54,7 @@ def inbox_table(metadata: MetaData) -> Table:
         Column("event_type", String(128), nullable=False),
         Column("received_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
         PrimaryKeyConstraint("consumer", "event_id"),
+        comment="platform_scoped: consumer dedupe table, ids only",
     )
 
 
@@ -80,11 +82,9 @@ def idempotency_table(metadata: MetaData) -> Table:
 
 def create_infra_tables(op: object, app_role: str, relay_role: str | None = None) -> None:
     """Alembic helper: grants and RLS for the infra tables (tables created via metadata)."""
-    from nexus_core.rls import apply_tenant_rls, mark_platform_scoped
+    from nexus_core.rls import apply_tenant_rls
 
     o = op  # alembic.op
-    mark_platform_scoped(o, "outbox", "transport table, ids-only payloads, drained by relay")
-    mark_platform_scoped(o, "inbox", "consumer dedupe table, ids only")
     o.execute(f"GRANT INSERT, SELECT, UPDATE ON outbox TO {app_role}")  # type: ignore[attr-defined]
     o.execute(f"GRANT USAGE, SELECT ON SEQUENCE outbox_id_seq TO {app_role}")  # type: ignore[attr-defined]
     o.execute(f"GRANT INSERT, SELECT ON inbox TO {app_role}")  # type: ignore[attr-defined]

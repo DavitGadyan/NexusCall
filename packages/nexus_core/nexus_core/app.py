@@ -21,6 +21,7 @@ from nexus_core.health import ReadinessCheck, health_router
 from nexus_core.logging import configure_logging
 from nexus_core.messaging import EventConsumer, Handler, OutboxRelay
 from nexus_core.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
+from nexus_core.scheduling import PeriodicJob, run_periodic
 from nexus_core.telemetry import install_metrics, install_tracing
 
 Hook = Callable[[FastAPI], Awaitable[None]]
@@ -64,6 +65,7 @@ def create_service_app(
     event_handlers: dict[str, Handler] | None = None,
     allowed_producers: dict[str, set[str]] | None = None,
     consumer_name: str | None = None,
+    periodic_jobs: Sequence[PeriodicJob] = (),
 ) -> FastAPI:
     configure_logging(settings.service_name, settings.env.value, settings.log_level)
     state: dict[str, Any] = {}
@@ -88,6 +90,8 @@ def create_service_app(
                 allowed_producers=allowed_producers,
             )
             tasks.append(asyncio.create_task(_supervise("event_consumer", consumer.run)))
+        if settings.periodic_jobs_enabled:
+            tasks.extend(asyncio.create_task(run_periodic(app, job)) for job in periodic_jobs)
         yield
         for task in tasks:
             task.cancel()

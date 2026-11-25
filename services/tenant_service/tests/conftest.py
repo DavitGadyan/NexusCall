@@ -67,6 +67,7 @@ def harness(sdb, tokens):
         redis_url="redis://127.0.0.1:1/0",
         outbox_relay_enabled=False,
         event_consumers_enabled=False,
+        periodic_jobs_enabled=False,
         notification_service_url="http://notify.test",
         public_base_url="http://app.test",
     )

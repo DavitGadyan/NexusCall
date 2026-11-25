@@ -22,13 +22,19 @@ TENANT_PERMISSIONS: dict[str, str] = {
     "calls:read": "View calls, live activity and outcomes",
     "calls:manage": "Manage calls, phone numbers and handoffs",
     "calls:recordings:read": "Access recordings and transcripts (audited)",
+    "bookings:read": "View bookings and availability",
     "bookings:manage": "Create, reschedule and cancel bookings",
     "emails:campaigns:manage": "Manage email campaigns, templates and senders",
     "emails:send": "Send transactional email",
     "emails:inbox:read": "Read inbox threads",
     "emails:drafts:review": "Review, edit and reject AI drafts",
     "emails:drafts:approve": "Approve AI drafts for sending (audited)",
+    "integrations:read": "View provider connections, webhooks and delivery history",
     "integrations:manage": "Manage provider connections and webhooks",
+    "ai:agents:read": "View AI agents, prompts and knowledge sources",
+    "ai:agents:manage": "Configure AI agents, prompts, knowledge sources and tool grants",
+    "ai:approvals:decide": "Approve or reject AI-proposed customer-facing actions (audited)",
+    "ai:usage:read": "View AI usage, cost and activity",
     "analytics:read": "View dashboards and reports",
     "analytics:export": "Export analytics (audited)",
     "audit:read": "View the tenant audit log",
@@ -89,6 +95,10 @@ SYSTEM_ROLES: tuple[SystemRole, ...] = (
         "tenant",
         frozenset(
             {
+                "bookings:read",
+                "ai:agents:read",
+                "ai:agents:manage",
+                "ai:usage:read",
                 "leads:read",
                 "leads:create",
                 "leads:update",
@@ -109,6 +119,9 @@ SYSTEM_ROLES: tuple[SystemRole, ...] = (
         "tenant",
         frozenset(
             {
+                "bookings:read",
+                "ai:agents:read",
+                "ai:approvals:decide",
                 "leads:read",
                 "campaigns:read",
                 "calls:read",
@@ -124,7 +137,7 @@ SYSTEM_ROLES: tuple[SystemRole, ...] = (
         "call_agent",
         "Call agent",
         "tenant",
-        frozenset({"leads:read", "calls:read", "bookings:manage"}),
+        frozenset({"leads:read", "calls:read", "bookings:read", "bookings:manage"}),
         "Handles handoffs and assigned leads",
     ),
     SystemRole(
@@ -133,6 +146,9 @@ SYSTEM_ROLES: tuple[SystemRole, ...] = (
         "tenant",
         frozenset(
             {
+                "ai:agents:read",
+                "ai:approvals:decide",
+                "integrations:read",
                 "leads:read",
                 "campaigns:read",
                 "emails:campaigns:manage",
@@ -152,6 +168,8 @@ SYSTEM_ROLES: tuple[SystemRole, ...] = (
         "tenant",
         frozenset(
             {
+                "bookings:read",
+                "ai:usage:read",
                 "leads:read",
                 "campaigns:read",
                 "calls:read",

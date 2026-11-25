@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "NexusCall Email Inbox & AI Draft Service"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "nexus-core",
+  "nexus-core[aws]",
   "nexus-event-schemas",
   "nexus-provider-contracts",
   "bleach>=6.2,<7",

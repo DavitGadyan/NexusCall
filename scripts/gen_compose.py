@@ -73,8 +73,12 @@ def py_env(name: str, db: str) -> dict[str, str]:
         "VAULT_ROLE_ID_FILE": f"/approle/{name}/role_id",
         "VAULT_SECRET_ID_FILE": f"/approle/{name}/secret_id",
         "FAKE_PROVIDERS_URL": "http://fake-providers:8000",
+        "FAKE_PROVIDER_SECRET": "${FAKE_PROVIDER_SECRET}",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "${OTEL_EXPORTER_OTLP_ENDPOINT:-}",
         "S3_ENDPOINT_URL": "http://objectstore:9000",
+        "S3_PUBLIC_ENDPOINT_URL": "http://localhost:${NEXUS_PORT_S3:-47900}",
+        "S3_ACCESS_KEY_ID": "${S3_DEV_ACCESS_KEY}",
+        "S3_SECRET_ACCESS_KEY": "${S3_DEV_SECRET_KEY}",
         "PUBLIC_BASE_URL": "${NEXUS_PUBLIC_BASE_URL}",
     }
 
@@ -257,27 +261,41 @@ def compose() -> dict:
             # SeaweedFS (Apache-2.0) S3 gateway. DEV ONLY; production uses any S3-compatible store (ADR-0013).
             "image": "chrislusf/seaweedfs:3.80",
             "restart": "unless-stopped",
-            "entrypoint": ["/bin/sh", "-c",
-                           "printf '{\"identities\":[{\"name\":\"nexus\",\"credentials\":[{\"accessKey\":\"%s\",'"
-                           "'\"secretKey\":\"%s\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"List\",\"Tagging\"]}]}' "
-                           "\"$$S3_DEV_ACCESS_KEY\" \"$$S3_DEV_SECRET_KEY\" > /tmp/s3.json && "
-                           "exec weed server -dir=/data -s3 -s3.port=9000 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=256 "
-                           "-volume.max=8 -ip.bind=0.0.0.0"],
+            "entrypoint": [
+                "/bin/sh",
+                "-c",
+                'printf \'{"identities":[{"name":"nexus","credentials":[{"accessKey":"%s",\''
+                '\'"secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}\' '
+                '"$$S3_DEV_ACCESS_KEY" "$$S3_DEV_SECRET_KEY" > /tmp/s3.json && '
+                "exec weed server -dir=/data -s3 -s3.port=9000 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=256 "
+                "-volume.max=8 -ip.bind=0.0.0.0",
+            ],
             "environment": {"S3_DEV_ACCESS_KEY": "${S3_DEV_ACCESS_KEY}", "S3_DEV_SECRET_KEY": "${S3_DEV_SECRET_KEY}"},
             "volumes": ["objectdata:/data"],
+            # Published on loopback only so browsers can fetch short-lived presigned URLs in development.
+            "ports": ["127.0.0.1:${NEXUS_PORT_S3:-47900}:9000"],
             "networks": ["internal"],
             "mem_limit": "384m",
-            "healthcheck": {"test": ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9000/healthz || exit 1"],
-                            "interval": "5s", "retries": 30},
+            "healthcheck": {
+                "test": ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9000/healthz || exit 1"],
+                "interval": "5s",
+                "retries": 30,
+            },
         },
         "objectstore-init": {
             "image": "amazon/aws-cli:2.22.20",
-            "entrypoint": ["/bin/sh", "-c",
-                           "for b in recordings transcripts attachments raw-mail imports exports knowledge; do "
-                           "aws --endpoint-url http://objectstore:9000 s3api head-bucket --bucket $$b 2>/dev/null || "
-                           "aws --endpoint-url http://objectstore:9000 s3api create-bucket --bucket $$b; done"],
-            "environment": {"AWS_ACCESS_KEY_ID": "${S3_DEV_ACCESS_KEY}", "AWS_SECRET_ACCESS_KEY": "${S3_DEV_SECRET_KEY}",
-                            "AWS_DEFAULT_REGION": "us-east-1"},
+            "entrypoint": [
+                "/bin/sh",
+                "-c",
+                "for b in recordings transcripts attachments raw-mail imports exports knowledge; do "
+                "aws --endpoint-url http://objectstore:9000 s3api head-bucket --bucket $$b 2>/dev/null || "
+                "aws --endpoint-url http://objectstore:9000 s3api create-bucket --bucket $$b; done",
+            ],
+            "environment": {
+                "AWS_ACCESS_KEY_ID": "${S3_DEV_ACCESS_KEY}",
+                "AWS_SECRET_ACCESS_KEY": "${S3_DEV_SECRET_KEY}",
+                "AWS_DEFAULT_REGION": "us-east-1",
+            },
             "networks": ["internal"],
             "depends_on": {"objectstore": {"condition": "service_healthy"}},
             "restart": "no",
@@ -331,6 +349,7 @@ def compose() -> dict:
             "environment": {
                 "ENV": "development",
                 "SERVICE_NAME": "fake-providers",
+                "FAKE_PROVIDER_SECRET": "${FAKE_PROVIDER_SECRET}",
                 "NEXUS_PUBLIC_BASE_URL": "${NEXUS_PUBLIC_BASE_URL}",
             },
             "mem_limit": "192m",

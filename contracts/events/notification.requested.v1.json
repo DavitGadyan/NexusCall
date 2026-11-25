@@ -43,6 +43,33 @@
       "default": null,
       "title": "Resource Id"
     },
+    "permission": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Permission"
+    },
+    "link": {
+      "anyOf": [
+        {
+          "maxLength": 300,
+          "pattern": "^/[A-Za-z0-9/_?=&.-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Link"
+    },
     "channel": {
       "default": "in_app",
       "enum": [

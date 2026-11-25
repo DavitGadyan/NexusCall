@@ -145,9 +145,16 @@ async def test_sns_verification(monkeypatch):
     tampered = {**msg, "Message": '{"x":1}'}
     with pytest.raises(WebhookVerificationError):
         await verifier.verify(tampered)
-    evil_cert = {**msg, "SigningCertURL": "https://evil.example.com/cert.pem"}
-    with pytest.raises(WebhookVerificationError, match="certificate URL"):
-        await verifier.verify(evil_cert)
+    for bad_url in (
+        "https://evil.example.com/cert.pem",
+        "https://evilamazonaws.com/cert.pem",
+        "https://sns.us-east-1.amazonaws.com.evil.io/cert.pem",
+        "http://sns.us-east-1.amazonaws.com/cert.pem",
+        "https://user@sns.us-east-1.amazonaws.com/cert.pem",
+        "https://sns.us-east-1.amazonaws.com/cert.txt",
+    ):
+        with pytest.raises(WebhookVerificationError, match="certificate URL"):
+            await verifier.verify({**msg, "SigningCertURL": bad_url})
     wrong_topic = {**msg, "TopicArn": "arn:aws:sns:us-east-1:1:other"}
     with pytest.raises(WebhookVerificationError, match="topic"):
         await verifier.verify(wrong_topic)

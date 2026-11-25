@@ -26,6 +26,10 @@ dependencies = [
   "nexus-event-schemas",
 ]
 
+[project.optional-dependencies]
+# S3-compatible object storage + SES. Services that need them depend on `nexus-core[aws]`.
+aws = ["aiobotocore>=2.15,<4"]
+
 [tool.uv.sources]
 nexus-event-schemas = { workspace = true }
 

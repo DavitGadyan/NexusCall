@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import logging
 
 from fastapi import FastAPI
@@ -9,6 +7,7 @@ from fastapi import FastAPI
 from nexus_core.app import create_service_app
 from nexus_core.config import Environment
 from nexus_core.db import Database
+from nexus_core.scheduling import PeriodicJob
 from nexus_core.vault import VaultClient
 from tenant_service.access import LocalAuthzResolver
 from tenant_service.api import routers
@@ -55,16 +54,15 @@ def create_app(
                 kv_mount=settings.vault_kv_mount,
             )
         app.state.authz_resolver = LocalAuthzResolver(app.state.db)
-        app.state.background = asyncio.create_task(_expiry_loop(app))
 
     async def shutdown(app: FastAPI) -> None:
-        task = getattr(app.state, "background", None)
-        if task:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
         if getattr(app.state, "vault", None):
             await app.state.vault.close()
+
+    async def expire_grants(app: FastAPI) -> None:
+        from tenant_service.api.platform import expire_support_grants
+
+        await expire_support_grants(app.state.db)
 
     app = create_service_app(
         settings,
@@ -74,24 +72,12 @@ def create_app(
         inbox=inbox,
         on_startup=[startup],
         on_shutdown=[shutdown],
+        # Auto-revoke expired support grants (build.md §20.3). Idempotent; single runner via Redis lock.
+        periodic_jobs=[PeriodicJob("support-grant-expiry", 60, expire_grants)],
     )
     if database is not None:
         app.state.db = database
     return app
-
-
-async def _expiry_loop(app: FastAPI) -> None:
-    """Auto-revoke expired support grants every minute (single-writer safe: idempotent UPDATEs)."""
-    from tenant_service.api.platform import expire_support_grants
-
-    while True:
-        try:
-            await asyncio.sleep(60)
-            await expire_support_grants(app.state.db)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            log.exception("support_expiry_failed")
 
 
 app = create_app()

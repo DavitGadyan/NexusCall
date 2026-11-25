@@ -16,12 +16,14 @@ export const workspaceNav: NavSection[] = [
     { label: "Call history", href: "/app/calls", permission: "calls:read" },
     { label: "Inbox", href: "/app/inbox", permission: "emails:inbox:read" },
     { label: "Approval queue", href: "/app/inbox/drafts", permission: "emails:drafts:review" },
-    { label: "Bookings", href: "/app/bookings", permission: "calls:read" },
+    { label: "Bookings", href: "/app/bookings", permission: "bookings:read" },
+    { label: "AI approvals", href: "/app/approvals", permission: "ai:approvals:decide" },
   ]},
   { label: "Configure", items: [
-    { label: "AI agents", href: "/app/agents", permission: "campaigns:manage" },
+    { label: "AI agents", href: "/app/agents", permission: "ai:agents:read" },
+    { label: "Knowledge", href: "/app/knowledge", permission: "ai:agents:read" },
     { label: "Analytics", href: "/app/analytics", permission: "analytics:read" },
-    { label: "Integrations", href: "/app/integrations", permission: "integrations:manage" },
+    { label: "Integrations", href: "/app/integrations", permission: "integrations:read" },
   ]},
 ];
 

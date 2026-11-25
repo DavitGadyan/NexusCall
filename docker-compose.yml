@@ -198,6 +198,8 @@ services:
       S3_DEV_SECRET_KEY: ${S3_DEV_SECRET_KEY}
     volumes:
     - objectdata:/data
+    ports:
+    - 127.0.0.1:${NEXUS_PORT_S3:-47900}:9000
     networks:
     - internal
     mem_limit: 384m
@@ -333,6 +335,7 @@ services:
     environment:
       ENV: development
       SERVICE_NAME: fake-providers
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       NEXUS_PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
   mailpit:
     image: axllent/mailpit:v1.21.8
@@ -447,8 +450,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/tenant-service/role_id
       VAULT_SECRET_ID_FILE: /approle/tenant-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -496,8 +503,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/audit-service/role_id
       VAULT_SECRET_ID_FILE: /approle/audit-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -535,8 +546,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/notification-service/role_id
       VAULT_SECRET_ID_FILE: /approle/notification-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -574,8 +589,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/crm-service/role_id
       VAULT_SECRET_ID_FILE: /approle/crm-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -613,8 +632,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/campaign-service/role_id
       VAULT_SECRET_ID_FILE: /approle/campaign-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -654,8 +677,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/ai-agent-service/role_id
       VAULT_SECRET_ID_FILE: /approle/ai-agent-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -695,8 +722,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/ai-gateway/role_id
       VAULT_SECRET_ID_FILE: /approle/ai-gateway/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -735,8 +766,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/mcp-registry/role_id
       VAULT_SECRET_ID_FILE: /approle/mcp-registry/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -775,8 +810,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/tool-execution/role_id
       VAULT_SECRET_ID_FILE: /approle/tool-execution/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -814,8 +853,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/call-service/role_id
       VAULT_SECRET_ID_FILE: /approle/call-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -853,8 +896,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/voice-service/role_id
       VAULT_SECRET_ID_FILE: /approle/voice-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -892,8 +939,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/booking-service/role_id
       VAULT_SECRET_ID_FILE: /approle/booking-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -931,8 +982,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/email-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -970,8 +1025,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/email-inbox-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-inbox-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -1009,8 +1068,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/integration-service/role_id
       VAULT_SECRET_ID_FILE: /approle/integration-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro
@@ -1048,8 +1111,12 @@ services:
       VAULT_ROLE_ID_FILE: /approle/analytics-service/role_id
       VAULT_SECRET_ID_FILE: /approle/analytics-service/secret_id
       FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
     volumes:
     - approle:/approle:ro

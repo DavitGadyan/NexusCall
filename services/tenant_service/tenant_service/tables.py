@@ -349,3 +349,6 @@ TENANT_TABLES = (
     "tenant_feature_overrides",
     "support_grants",
 )
+
+for _name, _reason in PLATFORM_SCOPED.items():
+    metadata.tables[_name].comment = f"platform_scoped: {_reason}"

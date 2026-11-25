@@ -80,6 +80,39 @@ def apply_tenant_rls(op: Any, table: str, app_role: str, **kw: Any) -> None:
         op.execute(stmt)
 
 
+def append_only_rls_statements(table: str, app_role: str, *, allow_null_tenant: bool = False) -> list[str]:
+    """RLS for append-only tenant tables (audit trails, immutable version history).
+
+    The table must be declared with `comment="append_only: <reason>"` in `tables.py`; the coverage
+    scanner uses that marker to expect SELECT/INSERT policies only.
+
+    Only SELECT and INSERT policies exist, so UPDATE/DELETE are denied by RLS; triggers and REVOKEs add
+    defense in depth (also against the table owner). With `allow_null_tenant`, rows without a tenant
+    (platform-level events) can be inserted only from a session that has NO tenant context, and are
+    invisible to tenant sessions."""
+    t, r = _check(table), _check(app_role)
+    insert_check = (
+        f"tenant_id IS NOT DISTINCT FROM {TENANT_EXPR}" if allow_null_tenant else f"tenant_id = {TENANT_EXPR}"
+    )
+    return [
+        f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY",
+        f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY",
+        f"CREATE POLICY {t}_tenant_select ON {t} FOR SELECT USING (tenant_id = {TENANT_EXPR})",
+        f"CREATE POLICY {t}_tenant_insert ON {t} FOR INSERT WITH CHECK ({insert_check})",
+        f"CREATE TRIGGER {t}_append_only BEFORE UPDATE OR DELETE ON {t}"
+        f" FOR EACH ROW EXECUTE FUNCTION app_append_only()",
+        f"CREATE TRIGGER {t}_no_truncate BEFORE TRUNCATE ON {t}"
+        f" FOR EACH STATEMENT EXECUTE FUNCTION app_append_only()",
+        f"REVOKE ALL ON {t} FROM {r}",
+        f"GRANT SELECT, INSERT ON {t} TO {r}",
+    ]
+
+
+def apply_append_only_rls(op: Any, table: str, app_role: str, **kw: Any) -> None:
+    for stmt in append_only_rls_statements(table, app_role, **kw):
+        op.execute(stmt)
+
+
 def grant_platform_table(op: Any, table: str, app_role: str, privileges: str = "SELECT") -> None:
     op.execute(f"GRANT {privileges} ON {_check(table)} TO {_check(app_role)}")
 
@@ -94,6 +127,7 @@ class TableCoverage:
     policies: tuple[str, ...]
     commands: tuple[str, ...]
     platform_scoped: bool
+    append_only: bool = False
 
     @property
     def status(self) -> str:
@@ -106,8 +140,11 @@ class TableCoverage:
             return "rls_disabled"
         if not self.rls_forced:
             return "rls_not_forced"
-        if not {"SELECT", "INSERT", "UPDATE", "DELETE"} <= set(self.commands) and "ALL" not in self.commands:
+        required = {"SELECT", "INSERT"} if self.append_only else {"SELECT", "INSERT", "UPDATE", "DELETE"}
+        if not required <= set(self.commands) and "ALL" not in self.commands:
             return "incomplete_policies"
+        if self.append_only and {"UPDATE", "DELETE", "ALL"} & set(self.commands):
+            return "append_only_violated"
         return "ok"
 
 
@@ -120,7 +157,8 @@ COVERAGE_SQL = text(
            COALESCE(array_agg(p.policyname ORDER BY p.policyname)
                     FILTER (WHERE p.policyname IS NOT NULL), '{}') AS policies,
            COALESCE(array_agg(DISTINCT p.cmd) FILTER (WHERE p.cmd IS NOT NULL), '{}') AS commands,
-           COALESCE(obj_description(c.oid, 'pg_class') LIKE '%platform_scoped%', false) AS platform_scoped
+           COALESCE(obj_description(c.oid, 'pg_class') LIKE 'platform_scoped:%', false) AS platform_scoped,
+           COALESCE(obj_description(c.oid, 'pg_class') LIKE 'append_only:%', false) AS append_only
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname
@@ -151,6 +189,7 @@ async def inspect_coverage(conn: AsyncConnection) -> list[TableCoverage]:
             policies=tuple(r["policies"]),
             commands=tuple(r["commands"]),
             platform_scoped=bool(r["platform_scoped"]),
+            append_only=bool(r["append_only"]),
         )
         for r in rows
     ]
@@ -162,6 +201,9 @@ async def inspect_role(conn: AsyncConnection, app_role: str) -> list[dict[str, A
 
 
 def mark_platform_scoped(op: Any, table: str, reason: str) -> None:
-    """Platform-global tables carry an explicit, reviewable marker comment."""
+    """Platform-global tables carry an explicit, reviewable marker comment.
+
+    Preferred: declare `comment="platform_scoped: <reason>"` on the Table in `tables.py` so the model,
+    the migration and the database agree (the migration drift test compares comments)."""
     safe_reason = reason.replace("'", "''")
     op.execute(f"COMMENT ON TABLE {_check(table)} IS 'platform_scoped: {safe_reason}'")

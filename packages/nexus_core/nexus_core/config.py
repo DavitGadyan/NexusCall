@@ -71,6 +71,8 @@ class ServiceSettings(BaseSettings):
     # Providers
     provider_mode: ProviderMode = ProviderMode.REAL
     fake_providers_url: str = "http://fake-providers:8000"
+    # Development/test only: shared with the fake-providers container to sign simulated webhooks.
+    fake_provider_secret: SecretStr | None = None
 
     # Observability
     otel_exporter_otlp_endpoint: str | None = None
@@ -79,6 +81,17 @@ class ServiceSettings(BaseSettings):
     # Background loops inside the service process
     outbox_relay_enabled: bool = True
     event_consumers_enabled: bool = True
+    periodic_jobs_enabled: bool = True
+
+    # Public URLs (links in emails, webhook callback URLs, presigned downloads)
+    public_base_url: str = "http://localhost:47000"
+
+    # S3-compatible object storage (ADR-0013). Credentials come from Vault Agent / env, never from code.
+    s3_endpoint_url: str = "http://objectstore:9000"
+    s3_public_endpoint_url: str | None = None  # browser-reachable endpoint used only for presigned URLs
+    s3_region: str = "us-east-1"
+    s3_access_key_id: SecretStr | None = None
+    s3_secret_access_key: SecretStr | None = None
 
     # HTTP limits
     max_request_body_bytes: int = 1_048_576
@@ -87,6 +100,14 @@ class ServiceSettings(BaseSettings):
     @property
     def jwks_url(self) -> str:
         return self.oidc_jwks_url or f"{self.oidc_issuer.rstrip('/')}/protocol/openid-connect/certs"
+
+    def service_url(self, name: str) -> str:
+        """Internal base URL of another NexusCall service, e.g. `service_url("crm-service")`.
+
+        Override per service with SVC_<NAME>_URL (dashes become underscores)."""
+        import os
+
+        return os.environ.get(f"SVC_{name.replace('-', '_').upper()}_URL", f"http://{name}:8000").rstrip("/")
 
     @property
     def token_url(self) -> str:

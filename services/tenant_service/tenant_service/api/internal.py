@@ -96,6 +96,8 @@ async def tenant_setting(tenant_id: uuid.UUID, section: str, request: Request, _
         raise NotFound("Tenant not found")
     async with database.tenant_session(tenant_id) as s:
         data = await tenant_section(s, tenant_id, section)
+    if section == "ai":
+        data["effective_ai_enabled"] = bool(kill["ai_enabled"] and status == "active")
     if section == "communication":  # effective switches: platform AND tenant AND tenant active
         data["effective_calls_enabled"] = bool(kill["calls_enabled"] and data["calls_enabled"] and status == "active")
         data["effective_emails_enabled"] = bool(

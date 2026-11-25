@@ -20,7 +20,8 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
-from nexus_core.auth.jwt import JWKSCache, TokenVerifier
+from nexus_core.auth.jwt import JWKSCache, Principal, TokenVerifier
+from nexus_core.authz import ResolvedAccess
 
 TEST_ISSUER = "http://idp.test/realms/nexus"
 TEST_AUDIENCE = "nexus-api"
@@ -86,6 +87,44 @@ class TokenFactory:
             "preferred_username": f"service-account-{client_id}",
         }
         return jwt.encode(claims, self.key, algorithm="RS256", headers={"kid": self.kid})
+
+
+class StaticAuthzResolver:
+    """In-memory authorization for service tests (stands in for tenant-service).
+
+    authz = StaticAuthzResolver()
+    authz.grant(user_id, tenant_id, {"leads:read", "leads:create"}, roles={"campaign_manager"})
+    app = create_app(settings, authz_resolver=authz)   # or: app.state.authz_resolver = authz
+    """
+
+    def __init__(self) -> None:
+        self.tenant: dict[tuple[str, str], ResolvedAccess] = {}
+        self.platform: dict[str, frozenset[str]] = {}
+
+    def grant(
+        self,
+        sub: str | uuid.UUID,
+        tenant_id: str | uuid.UUID,
+        permissions: set[str] | frozenset[str],
+        *,
+        roles: set[str] | None = None,
+        tenant_status: str = "active",
+    ) -> None:
+        self.tenant[(str(sub), str(tenant_id))] = ResolvedAccess(
+            True, frozenset(permissions), frozenset(roles or set()), tenant_status
+        )
+
+    def revoke(self, sub: str | uuid.UUID, tenant_id: str | uuid.UUID) -> None:
+        self.tenant.pop((str(sub), str(tenant_id)), None)
+
+    def grant_platform(self, sub: str | uuid.UUID, permissions: set[str] | frozenset[str]) -> None:
+        self.platform[str(sub)] = frozenset(permissions)
+
+    async def resolve_tenant(self, principal: Principal, tenant_id: uuid.UUID) -> ResolvedAccess:
+        return self.tenant.get((principal.sub, str(tenant_id)), ResolvedAccess(False, frozenset()))
+
+    async def resolve_platform(self, principal: Principal) -> frozenset[str]:
+        return self.platform.get(principal.sub, frozenset())
 
 
 def auth(token: str, tenant_id: str | uuid.UUID | None = None, **headers: str) -> dict[str, str]:

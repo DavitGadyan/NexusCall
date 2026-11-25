@@ -64,15 +64,23 @@ def main() -> int:
         else:
             print("rabbitmq not reachable", file=sys.stderr)
             return 1
-        c.put(f"{API}/vhosts/{VHOST}", json={"description": "NexusCall", "default_queue_type": "quorum"}).raise_for_status()
-        c.put(f"{API}/permissions/{VHOST}/{ADMIN[0]}", json={"configure": ".*", "write": ".*", "read": ".*"}).raise_for_status()
+        c.put(
+            f"{API}/vhosts/{VHOST}", json={"description": "NexusCall", "default_queue_type": "quorum"}
+        ).raise_for_status()
+        c.put(
+            f"{API}/permissions/{VHOST}/{ADMIN[0]}", json={"configure": ".*", "write": ".*", "read": ".*"}
+        ).raise_for_status()
         for name, etype in (("nexus.events", "topic"), ("nexus.tasks", "direct"), ("nexus.dlx", "topic")):
             c.put(f"{API}/exchanges/{VHOST}/{name}", json={"type": etype, "durable": True}).raise_for_status()
-        c.put(f"{API}/policies/{VHOST}/task-dlq", json={
-            "pattern": r"^(calls|voice|emails|integrations|imports|analytics|notifications)\.[a-z_]+$",
-            "apply-to": "queues", "priority": 0,
-            "definition": {"dead-letter-exchange": "nexus.dlx", "delivery-limit": 6},
-        }).raise_for_status()
+        c.put(
+            f"{API}/policies/{VHOST}/task-dlq",
+            json={
+                "pattern": r"^(calls|voice|emails|integrations|imports|analytics|notifications)\.[a-z_]+$",
+                "apply-to": "queues",
+                "priority": 0,
+                "definition": {"dead-letter-exchange": "nexus.dlx", "delivery-limit": 6},
+            },
+        ).raise_for_status()
         for svc, prefixes in PUBLISH.items():
             user = svc
             c.put(f"{API}/users/{user}", json={"password": SVC_PASSWORD, "tags": ""}).raise_for_status()

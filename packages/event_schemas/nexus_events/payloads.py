@@ -198,5 +198,8 @@ class NotificationRequested(_P):
     # For invitations etc: notification-service resolves the address from the referenced resource.
     resource_type: str | None = None
     resource_id: uuid.UUID | None = None
+    # Audience: one user, or everyone in the tenant holding `permission` (e.g. "emails:drafts:review").
+    permission: str | None = Field(default=None, max_length=64)
+    link: str | None = Field(default=None, max_length=300, pattern=r"^/[A-Za-z0-9/_?=&.-]*$")
     channel: Literal["in_app", "email"] = "in_app"
     occurred_at: datetime | None = None
