@@ -1,3 +1,5 @@
 from fastapi import APIRouter
 
-routers: list[APIRouter] = []
+from audit_service.api import events, platform
+
+routers: list[APIRouter] = [events.router, platform.router]
