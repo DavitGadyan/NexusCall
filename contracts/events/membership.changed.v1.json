@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "tenant_id": {
+      "format": "uuid",
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    },
+    "change": {
+      "enum": [
+        "added",
+        "removed",
+        "roles_changed",
+        "deactivated",
+        "reactivated"
+      ],
+      "title": "Change",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "user_id",
+    "change"
+  ],
+  "title": "MembershipChanged",
+  "type": "object"
+}

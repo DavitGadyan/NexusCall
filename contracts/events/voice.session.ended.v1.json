@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "session_id": {
+      "format": "uuid",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "call_id": {
+      "format": "uuid",
+      "title": "Call Id",
+      "type": "string"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "turns": {
+      "default": 0,
+      "title": "Turns",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "session_id",
+    "call_id",
+    "reason"
+  ],
+  "title": "VoiceSessionEnded",
+  "type": "object"
+}

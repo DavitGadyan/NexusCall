@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+# Supply-chain hardening: only explicitly reviewed packages may run install scripts.
+allowBuilds:
+  esbuild: true
+  sharp: false

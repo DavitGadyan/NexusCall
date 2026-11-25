@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "suppression_id": {
+      "format": "uuid",
+      "title": "Suppression Id",
+      "type": "string"
+    },
+    "channel": {
+      "enum": [
+        "phone",
+        "email",
+        "all"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "contact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contact Id"
+    }
+  },
+  "required": [
+    "suppression_id",
+    "channel",
+    "reason"
+  ],
+  "title": "SuppressionAdded",
+  "type": "object"
+}

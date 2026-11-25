@@ -1,0 +1,23 @@
+[project]
+name = "nexus-ai-agent-service"
+version = "0.1.0"
+description = "NexusCall AI Agent Service"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "nexus-core",
+  "nexus-event-schemas",
+  "nexus-provider-contracts",
+  "pgvector>=0.3,<0.4",
+]
+
+[tool.uv.sources]
+nexus-core = { workspace = true }
+nexus-event-schemas = { workspace = true }
+nexus-provider-contracts = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ai_agent_service"]

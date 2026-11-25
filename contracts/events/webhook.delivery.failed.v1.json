@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "endpoint_id": {
+      "format": "uuid",
+      "title": "Endpoint Id",
+      "type": "string"
+    },
+    "delivery_id": {
+      "format": "uuid",
+      "title": "Delivery Id",
+      "type": "string"
+    },
+    "attempts": {
+      "title": "Attempts",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "endpoint_id",
+    "delivery_id",
+    "attempts"
+  ],
+  "title": "WebhookDeliveryFailed",
+  "type": "object"
+}

@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "tenant",
+        "campaign",
+        "platform"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "channel": {
+      "enum": [
+        "call",
+        "email",
+        "all"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "engaged": {
+      "title": "Engaged",
+      "type": "boolean"
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Campaign Id"
+    }
+  },
+  "required": [
+    "scope",
+    "channel",
+    "engaged"
+  ],
+  "title": "KillSwitch",
+  "type": "object"
+}

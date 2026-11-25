@@ -1,0 +1,61 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "maxLength": 128,
+      "title": "Action",
+      "type": "string"
+    },
+    "resource_type": {
+      "maxLength": 64,
+      "title": "Resource Type",
+      "type": "string"
+    },
+    "resource_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Id"
+    },
+    "outcome": {
+      "default": "success",
+      "enum": [
+        "success",
+        "denied",
+        "failure"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Id"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "action",
+    "resource_type"
+  ],
+  "title": "AuditEventPayload",
+  "type": "object"
+}

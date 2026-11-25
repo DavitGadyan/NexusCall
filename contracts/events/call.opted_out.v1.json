@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "call_id": {
+      "format": "uuid",
+      "title": "Call Id",
+      "type": "string"
+    },
+    "contact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Contact Id"
+    }
+  },
+  "required": [
+    "call_id",
+    "contact_id"
+  ],
+  "title": "CallOptedOut",
+  "type": "object"
+}

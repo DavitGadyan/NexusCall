@@ -33,7 +33,9 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
   - machine-readable architecture graph (`docs/architecture/architecture.graph.json`)
 - **Exit:** the user has reviewed the decisions.
 
-### Phase 1 — Platform foundation
+### Phase 1 — Platform foundation ✅
+> **Delivered (2026-11-25).** nexus_core (auth/JWKS, authz deps, RLS sessions + helpers, outbox/inbox/idempotency, Vault client, webhook verifiers, SSRF guard, logging redaction, health/metrics/tracing), event schemas (41 typed events), provider contracts, 16 service skeletons from `scripts/new_service.py`, fake-providers guard, web shell, generated compose/Traefik/Keycloak configs, Vault/RabbitMQ bootstraps, CI. Verified: 80 unit tests, 7 RLS integration tests on real Postgres, all 16 migrations applied as owner roles, Keycloak service tokens validated (iss/aud), Vault per-service denial checked live. Deviations: SeaweedFS replaces MinIO (ADR-0013); outbox relays/consumers run in-process; host ports 47xxx.
+
 1. Workspace: `uv` workspace (`pyproject.toml` at root), `pnpm` workspace for `apps/web`, root `Makefile`, `.editorconfig`, `.gitignore`, `.dockerignore`, `.env.example`.
 2. `packages/nexus_core`: settings, logging and redaction, OTel, health router, error model, the JWT verifier (stub key source until Phase 2), `tenant_session()`, outbox/inbox/idempotency SQLAlchemy mixins, Vault client, fake guard.
 3. `packages/event_schemas`: the envelope plus a JSON Schema export script. `packages/provider_contracts`: Protocols.

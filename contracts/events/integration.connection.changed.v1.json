@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "connection_id": {
+      "format": "uuid",
+      "title": "Connection Id",
+      "type": "string"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "connection_id",
+    "provider",
+    "status"
+  ],
+  "title": "ConnectionChanged",
+  "type": "object"
+}

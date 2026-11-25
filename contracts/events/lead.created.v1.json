@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contact_id": {
+      "format": "uuid",
+      "title": "Contact Id",
+      "type": "string"
+    },
+    "lead_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lead Id"
+    }
+  },
+  "required": [
+    "contact_id"
+  ],
+  "title": "ContactRef",
+  "type": "object"
+}

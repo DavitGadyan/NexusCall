@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "platform",
+        "tenant"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "section": {
+      "title": "Section",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scope",
+    "section",
+    "version"
+  ],
+  "title": "SettingsChanged",
+  "type": "object"
+}

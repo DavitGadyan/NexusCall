@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "import_id": {
+      "format": "uuid",
+      "title": "Import Id",
+      "type": "string"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    },
+    "created": {
+      "title": "Created",
+      "type": "integer"
+    },
+    "updated": {
+      "title": "Updated",
+      "type": "integer"
+    },
+    "failed": {
+      "title": "Failed",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "import_id",
+    "total",
+    "created",
+    "updated",
+    "failed"
+  ],
+  "title": "ImportCompleted",
+  "type": "object"
+}

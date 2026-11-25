@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "address_hash": {
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Address Hash",
+      "type": "string"
+    },
+    "contact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contact Id"
+    },
+    "message_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message Id"
+    }
+  },
+  "required": [
+    "address_hash"
+  ],
+  "title": "EmailAddressEvent",
+  "type": "object"
+}

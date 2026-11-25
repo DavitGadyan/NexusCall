@@ -1,0 +1,105 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with: { version: "0.13.7" }
+      - run: uv sync --all-packages --frozen
+      - name: Lint
+        run: uv run ruff check packages services scripts tests
+      - name: Type check
+        run: uv run mypy packages/nexus_core/nexus_core packages/event_schemas/nexus_events
+      - name: Unit tests
+        run: uv run pytest packages services tests -m "not integration" -q
+      - name: Integration + security tests (testcontainers)
+        run: uv run pytest packages services tests -m integration -q
+      - name: Contract drift (OpenAPI + event schemas)
+        run: |
+          uv run python scripts/export_openapi.py
+          git diff --exit-code contracts/
+      - name: Architecture graph integrity
+        run: uv run python scripts/check_architecture_graph.py
+      - name: Fakes are never enabled in production manifests
+        run: "! grep -rEn 'PROVIDER_MODE[:=] *\"?fake' infra/helm || (echo 'fake provider in prod manifest' && exit 1)"
+
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: "11.1.2" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @nexuscall/web lint
+      - run: pnpm --filter @nexuscall/web typecheck
+      - run: pnpm --filter @nexuscall/web test
+      - run: pnpm --filter @nexuscall/web build
+
+  images:
+    runs-on: ubuntu-24.04
+    needs: [python, web]
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: tenant-service, file: services/tenant_service/Dockerfile }
+          - { name: crm-service, file: services/crm_service/Dockerfile }
+          - { name: campaign-service, file: services/campaign_service/Dockerfile }
+          - { name: call-service, file: services/call_service/Dockerfile }
+          - { name: voice-service, file: services/voice_service/Dockerfile }
+          - { name: ai-agent-service, file: services/ai_agent_service/Dockerfile }
+          - { name: ai-gateway, file: services/ai_gateway/Dockerfile }
+          - { name: mcp-registry, file: services/mcp_registry/Dockerfile }
+          - { name: tool-execution, file: services/tool_execution/Dockerfile }
+          - { name: booking-service, file: services/booking_service/Dockerfile }
+          - { name: email-service, file: services/email_service/Dockerfile }
+          - { name: email-inbox-service, file: services/email_inbox_service/Dockerfile }
+          - { name: integration-service, file: services/integration_service/Dockerfile }
+          - { name: notification-service, file: services/notification_service/Dockerfile }
+          - { name: analytics-service, file: services/analytics_service/Dockerfile }
+          - { name: audit-service, file: services/audit_service/Dockerfile }
+          - { name: web, file: apps/web/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.file }}
+          tags: nexuscall/${{ matrix.image.name }}:ci
+          load: true
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: nexuscall/${{ matrix.image.name }}:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

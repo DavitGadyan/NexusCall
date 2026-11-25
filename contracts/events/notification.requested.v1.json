@@ -1,0 +1,74 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "template": {
+      "title": "Template",
+      "type": "string"
+    },
+    "recipient_user_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recipient User Id"
+    },
+    "resource_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Type"
+    },
+    "resource_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Id"
+    },
+    "channel": {
+      "default": "in_app",
+      "enum": [
+        "in_app",
+        "email"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "occurred_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Occurred At"
+    }
+  },
+  "required": [
+    "template"
+  ],
+  "title": "NotificationRequested",
+  "type": "object"
+}

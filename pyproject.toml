@@ -1,0 +1,35 @@
+[project]
+name = "nexuscall-workspace"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+description = "NexusCall monorepo workspace root (not a deployable package)."
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*"]
+exclude = ["services/_template"]
+
+[dependency-groups]
+dev = [
+  "ruff==0.8.4",
+  "mypy==1.13.0",
+  "pytest==8.3.4",
+  "pytest-asyncio==0.24.0",
+  "pytest-cov==6.0.0",
+  "respx==0.22.0",
+  "testcontainers[postgres,rabbitmq,redis]==4.9.0",
+  "jsonschema==4.23.0",
+  "pyyaml==6.0.2",
+  "freezegun==1.5.1",
+]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "integration: needs Docker (testcontainers)",
+  "security: tenant isolation / authz / injection tests",
+]

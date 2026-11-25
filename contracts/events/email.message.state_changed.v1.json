@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "message_id": {
+      "format": "uuid",
+      "title": "Message Id",
+      "type": "string"
+    },
+    "state": {
+      "title": "State",
+      "type": "string"
+    },
+    "category": {
+      "enum": [
+        "campaign",
+        "transactional",
+        "reply"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Campaign Id"
+    }
+  },
+  "required": [
+    "message_id",
+    "state",
+    "category"
+  ],
+  "title": "EmailMessageStateChanged",
+  "type": "object"
+}

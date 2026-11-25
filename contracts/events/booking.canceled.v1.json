@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "booking_id": {
+      "format": "uuid",
+      "title": "Booking Id",
+      "type": "string"
+    },
+    "contact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contact Id"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "booking_id",
+    "status"
+  ],
+  "title": "BookingRef",
+  "type": "object"
+}

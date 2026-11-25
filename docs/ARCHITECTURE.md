@@ -30,7 +30,7 @@ Twilio Media ─WSS────▶ Traefik /media/*    ──▶ voice-service
    │ booking  email  email-inbox  integration  notification  analytics  audit                   │
    │ workers: calls, voice-post, email-send, email-inbound, ai-drafts, integrations, imports,   │
    │          analytics, notifications, outbox-relay(s), celery-beat (single, locked)           │
-   │ data:    postgres(+pgvector)  rabbitmq  redis  minio  vault  keycloak  clamav              │
+   │ data:    postgres(+pgvector)  rabbitmq  redis  objectstore(S3)  vault  keycloak  clamav      │
    │ obs:     otel-collector  prometheus  grafana  loki  tempo                                  │
    │ dev-only: fake-providers, mailpit                                                          │
    └────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -172,7 +172,7 @@ The send endpoint accepts only a `draft_id` and `version`, never free-form recip
 - **LLM telemetry:** ai-gateway records model, latency, tokens and cost. Prompt content is not stored by default.
 
 ## 6. Deployment
-- **Local:** `docker compose` brings up the full stack, with fakes enabled by `PROVIDER_MODE=fake`. A Mailpit UI is available.
+- **Local:** `docker compose` (profiles; host ports 127.0.0.1:47xxx; SeaweedFS as S3-compatible store, [ADR-0013](adr/0013-local-object-storage-seaweedfs.md)) brings up the full stack, with fakes enabled by `PROVIDER_MODE=fake`. A Mailpit UI is available.
 - **Production:** generic Kubernetes ([ADR-0004](adr/0004-deployment-self-hosted-kubernetes.md)):
   - Helm umbrella chart with one subchart per service
   - Migrations run as a Helm pre-upgrade Job under the `<svc>_owner` role
@@ -182,6 +182,7 @@ The send endpoint accepts only a `draft_id` and `version`, never free-form recip
   - Terraform manages cluster add-ons: ingress, cert-manager, operators for Postgres (CloudNativePG), RabbitMQ (cluster operator), Redis, MinIO, Vault, and the observability stack
 
 ## 7. Known simplifications (Phase 0 position)
+- Outbox relays and event consumers run as supervised background tasks inside each service process (not separate containers) to fit a laptop; `FOR UPDATE SKIP LOCKED` keeps multiple replicas safe.
 - Locally, one PostgreSQL server hosts 17 databases (16 services plus Keycloak). Production can split them across CloudNativePG clusters by load.
 - Billing is out of scope. Usage metering exists so billing can be added later.
 - Only one real provider per category at first (Twilio, SES, Anthropic, Deepgram, ElevenLabs, Google Calendar). Others plug in through adapters later.

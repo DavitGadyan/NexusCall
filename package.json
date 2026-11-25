@@ -1,0 +1,12 @@
+{
+  "name": "nexuscall",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "web:dev": "pnpm --filter @nexuscall/web dev",
+    "web:build": "pnpm --filter @nexuscall/web build",
+    "web:lint": "pnpm --filter @nexuscall/web lint",
+    "web:typecheck": "pnpm --filter @nexuscall/web typecheck",
+    "web:test": "pnpm --filter @nexuscall/web test"
+  }
+}

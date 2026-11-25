@@ -1,0 +1,23 @@
+[project]
+name = "nexus-email-inbox-service"
+version = "0.1.0"
+description = "NexusCall Email Inbox & AI Draft Service"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "nexus-core",
+  "nexus-event-schemas",
+  "nexus-provider-contracts",
+  "bleach>=6.2,<7",
+]
+
+[tool.uv.sources]
+nexus-core = { workspace = true }
+nexus-event-schemas = { workspace = true }
+nexus-provider-contracts = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["email_inbox_service"]

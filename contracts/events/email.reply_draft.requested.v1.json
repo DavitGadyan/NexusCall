@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "message_id": {
+      "format": "uuid",
+      "title": "Message Id",
+      "type": "string"
+    },
+    "thread_id": {
+      "format": "uuid",
+      "title": "Thread Id",
+      "type": "string"
+    },
+    "mailbox_id": {
+      "format": "uuid",
+      "title": "Mailbox Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "message_id",
+    "thread_id",
+    "mailbox_id"
+  ],
+  "title": "InboundMessageRef",
+  "type": "object"
+}

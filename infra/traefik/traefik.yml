@@ -1,0 +1,20 @@
+# DEVELOPMENT edge router (ADR-0010). Production uses IngressRoute CRDs with TLS (Phase 8).
+entryPoints:
+  web:
+    address: ":80"
+    transport:
+      respondingTimeouts: { readTimeout: 30s, writeTimeout: 60s, idleTimeout: 120s }
+api:
+  dashboard: false
+ping: {}
+log: { level: INFO, format: json }
+accessLog:
+  format: json
+  fields:
+    headers:
+      defaultMode: drop        # never log Authorization / Cookie headers
+      names: { User-Agent: keep, X-Request-Id: keep }
+providers:
+  file: { filename: /etc/traefik/dynamic.yml, watch: true }
+metrics:
+  prometheus: { addRoutersLabels: true }

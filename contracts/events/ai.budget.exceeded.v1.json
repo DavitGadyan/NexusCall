@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "tenant",
+        "agent"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "period": {
+      "title": "Period",
+      "type": "string"
+    },
+    "limit_micros": {
+      "title": "Limit Micros",
+      "type": "integer"
+    },
+    "used_micros": {
+      "title": "Used Micros",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scope",
+    "period",
+    "limit_micros",
+    "used_micros"
+  ],
+  "title": "AiBudgetExceeded",
+  "type": "object"
+}

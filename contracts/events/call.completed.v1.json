@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "call_id": {
+      "format": "uuid",
+      "title": "Call Id",
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "inbound",
+        "outbound"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "final_state": {
+      "title": "Final State",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "default": 0,
+      "title": "Duration Seconds",
+      "type": "integer"
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Campaign Id"
+    },
+    "contact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contact Id"
+    },
+    "cost_micros": {
+      "default": 0,
+      "title": "Cost Micros",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "call_id",
+    "direction",
+    "final_state"
+  ],
+  "title": "CallCompleted",
+  "type": "object"
+}
