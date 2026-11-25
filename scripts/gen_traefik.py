@@ -60,6 +60,8 @@ ROUTES = {
         "/api/v1/email/templates",
         "/api/v1/email/senders",
         "/api/v1/email/domains",
+        "/api/v1/email/messages",
+        "/api/v1/email/usage",
         "/webhooks/ses/events",
         "/u/",
     ],

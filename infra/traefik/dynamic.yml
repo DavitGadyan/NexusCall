@@ -68,7 +68,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
     email-service:
-      rule: "PathPrefix(`/api/v1/email/campaigns`) || PathPrefix(`/api/v1/email/templates`) || PathPrefix(`/api/v1/email/senders`) || PathPrefix(`/api/v1/email/domains`) || PathPrefix(`/webhooks/ses/events`) || PathPrefix(`/u/`)"
+      rule: "PathPrefix(`/api/v1/email/campaigns`) || PathPrefix(`/api/v1/email/templates`) || PathPrefix(`/api/v1/email/senders`) || PathPrefix(`/api/v1/email/domains`) || PathPrefix(`/api/v1/email/messages`) || PathPrefix(`/api/v1/email/usage`) || PathPrefix(`/webhooks/ses/events`) || PathPrefix(`/u/`)"
       priority: 100
       service: email-service
       middlewares: [secure-headers, rate-limit, body-limit]

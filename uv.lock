@@ -1126,6 +1126,7 @@ version = "0.1.0"
 source = { editable = "services/email_service" }
 dependencies = [
     { name = "bleach" },
+    { name = "dnspython" },
     { name = "nexus-core", extra = ["aws"] },
     { name = "nexus-event-schemas" },
     { name = "nexus-provider-contracts" },
@@ -1134,6 +1135,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bleach", specifier = ">=6.2,<7" },
+    { name = "dnspython", specifier = ">=2.6,<3" },
     { name = "nexus-core", extras = ["aws"], editable = "packages/nexus_core" },
     { name = "nexus-event-schemas", editable = "packages/event_schemas" },
     { name = "nexus-provider-contracts", editable = "packages/provider_contracts" },

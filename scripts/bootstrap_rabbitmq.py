@@ -40,6 +40,8 @@ PUBLISH: dict[str, list[str]] = {
     "analytics-service": [],
     "audit-service": [],
 }
+# Task queues get the dead-letter policy (delivery limit, then <queue>.dlq). Keep in step with TASK_QUEUES.
+TASK_DLQ_POLICY_PATTERN = r"^(calls|voice|emails|ai|integrations|imports|analytics|notifications)\.[a-z_]+$"
 TASK_QUEUES: dict[str, str] = {
     "campaign-service": "calls",
     "call-service": "calls",
@@ -49,6 +51,7 @@ TASK_QUEUES: dict[str, str] = {
     "crm-service": "imports",
     "integration-service": "integrations",
     "analytics-service": "analytics",
+    "ai-agent-service": "ai",
     "notification-service": "notifications",
     "tenant-service": "notifications",
 }
@@ -87,7 +90,7 @@ def main() -> int:
         c.put(
             f"{API}/policies/{VHOST}/task-dlq",
             json={
-                "pattern": r"^(calls|voice|emails|integrations|imports|analytics|notifications)\.[a-z_]+$",
+                "pattern": TASK_DLQ_POLICY_PATTERN,
                 "apply-to": "queues",
                 "priority": 0,
                 "definition": {"dead-letter-exchange": "nexus.dlx", "delivery-limit": 6},

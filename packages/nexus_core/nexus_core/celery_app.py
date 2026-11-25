@@ -40,12 +40,16 @@ QUEUES = (
     "emails.inbound_process",
     "emails.ai_draft",
     "emails.send_approved",
+    "emails.transactional_send",
+    "ai.knowledge_ingest",
     "integrations.webhooks",
     "imports.process",
     "analytics.aggregate",
     "notifications.send",
 )
-LATENCY_SENSITIVE = frozenset({"calls.dispatch", "calls.provider_callbacks", "emails.send_approved"})
+LATENCY_SENSITIVE = frozenset(
+    {"calls.dispatch", "calls.provider_callbacks", "emails.send_approved", "emails.transactional_send"}
+)
 
 
 class PermanentFailure(Exception):
