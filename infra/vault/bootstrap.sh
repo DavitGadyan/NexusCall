@@ -49,6 +49,7 @@ write_policy ai-agent-service
 write_policy ai-gateway "path \"${T}/anthropic/*\" { capabilities = [\"read\"] }"
 write_policy mcp-registry
 write_policy tool-execution "path \"${T}/google_calendar/*\" { capabilities = [\"read\"] }" \
+  "path \"secret/data/${E}/platform/mcp-servers/*\" { capabilities = [\"read\"] }" \
   "path \"${T}/hubspot/*\" { capabilities = [\"read\"] }"
 write_policy booking-service "path \"${T}/google_calendar/*\" { capabilities = [\"read\"] }"
 write_policy email-service "path \"${T}/ses/*\" { capabilities = [\"read\"] }"

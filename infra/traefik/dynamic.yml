@@ -38,7 +38,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
     ai-agent-service:
-      rule: "PathPrefix(`/api/v1/ai/agents`) || PathPrefix(`/api/v1/knowledge`)"
+      rule: "PathPrefix(`/api/v1/ai/agents`) || PathPrefix(`/api/v1/ai/knowledge`) || PathPrefix(`/api/v1/ai/evals`) || PathPrefix(`/api/v1/ai/drafting-runs`)"
       priority: 100
       service: ai-agent-service
       middlewares: [secure-headers, rate-limit, body-limit]
@@ -56,7 +56,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
     tool-execution:
-      rule: "PathPrefix(`/api/v1/ai/tool-approvals`)"
+      rule: "PathPrefix(`/api/v1/ai/tool-approvals`) || PathPrefix(`/api/v1/ai/tool-executions`)"
       priority: 100
       service: tool-execution
       middlewares: [secure-headers, rate-limit, body-limit]
@@ -109,11 +109,17 @@ http:
       service: notification-service
       middlewares: [secure-headers, rate-limit]
       entryPoints: [web, internal]
-    crm-imports:
+    crm-service-uploads:
       rule: "PathPrefix(`/api/v1/imports`)"
       priority: 200
       service: crm-service
-      middlewares: [secure-headers, rate-limit, body-limit-imports]
+      middlewares: [secure-headers, rate-limit, body-limit-uploads]
+      entryPoints: [web, internal]
+    ai-agent-service-uploads:
+      rule: "PathPrefix(`/api/v1/ai/knowledge/sources`)"
+      priority: 200
+      service: ai-agent-service
+      middlewares: [secure-headers, rate-limit, body-limit-uploads]
       entryPoints: [web, internal]
   services:
     web:
@@ -179,5 +185,5 @@ http:
       rateLimit: { average: 100, burst: 200, period: 1s }
     body-limit:
       buffering: { maxRequestBodyBytes: 10485760, memRequestBodyBytes: 2097152 }
-    body-limit-imports:
+    body-limit-uploads:
       buffering: { maxRequestBodyBytes: 11534336, memRequestBodyBytes: 2097152 }

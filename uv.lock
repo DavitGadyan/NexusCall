@@ -901,6 +901,7 @@ dependencies = [
     { name = "nexus-provider-contracts" },
     { name = "pgvector" },
     { name = "pypdf" },
+    { name = "python-multipart" },
 ]
 
 [package.metadata]
@@ -910,6 +911,7 @@ requires-dist = [
     { name = "nexus-provider-contracts", editable = "packages/provider_contracts" },
     { name = "pgvector", specifier = ">=0.3,<0.4" },
     { name = "pypdf", specifier = ">=5.1,<7" },
+    { name = "python-multipart", specifier = ">=0.0.18,<0.1" },
 ]
 
 [[package]]
@@ -1251,6 +1253,9 @@ name = "nexus-tool-execution"
 version = "0.1.0"
 source = { editable = "services/tool_execution" }
 dependencies = [
+    { name = "certifi" },
+    { name = "httpcore" },
+    { name = "httpx" },
     { name = "jsonschema" },
     { name = "nexus-core" },
     { name = "nexus-event-schemas" },
@@ -1259,6 +1264,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2024.2.2" },
+    { name = "httpcore", specifier = ">=1.0.9,<2" },
+    { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "nexus-core", editable = "packages/nexus_core" },
     { name = "nexus-event-schemas", editable = "packages/event_schemas" },

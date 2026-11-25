@@ -9,10 +9,9 @@ import uuid
 
 import httpcore
 import pytest
+from toolexec_support import MCP_TOKEN, SERVER_ID, VAULT_REF, spec_for
 
 from tool_execution.mcp_client import McpError, PinnedNetworkBackend, _parse, _shape
-
-from .conftest import MCP_TOKEN, SERVER_ID, VAULT_REF, spec_for
 
 pytestmark = [pytest.mark.integration, pytest.mark.security]
 TOOL = "mcp.vendor_docs.search"

@@ -8,10 +8,9 @@ import uuid
 
 import pytest
 from sqlalchemy import select, text
+from toolexec_support import MCP_TOKEN, spec_for
 
 from tool_execution.tables import ai_approval_requests, outbox, tool_execution_records
-
-from .conftest import MCP_TOKEN, spec_for
 
 pytestmark = [pytest.mark.integration, pytest.mark.security]
 

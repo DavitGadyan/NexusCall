@@ -32,7 +32,7 @@ ROUTES = {
     "campaign-service": ["/api/v1/campaigns"],
     "call-service": ["/api/v1/calls", "/api/v1/inbound-numbers", "/webhooks/twilio"],
     "voice-service": ["/media/twilio", "/api/v1/voice"],
-    "ai-agent-service": ["/api/v1/ai/agents", "/api/v1/knowledge"],
+    "ai-agent-service": ["/api/v1/ai/agents", "/api/v1/ai/knowledge", "/api/v1/ai/evals", "/api/v1/ai/drafting-runs"],
     "ai-gateway": [
         "/api/v1/platform/ai/providers",
         "/api/v1/platform/ai/models",
@@ -53,7 +53,7 @@ ROUTES = {
         "/api/v1/platform/ai/policies",
         "/api/v1/ai/grants",
     ],
-    "tool-execution": ["/api/v1/ai/tool-approvals"],
+    "tool-execution": ["/api/v1/ai/tool-approvals", "/api/v1/ai/tool-executions"],
     "booking-service": ["/api/v1/bookings", "/api/v1/availability"],
     "email-service": [
         "/api/v1/email/campaigns",
@@ -83,6 +83,10 @@ ROUTES = {
 
 
 MIDDLEWARES = "[secure-headers, rate-limit, body-limit]"
+LARGE_UPLOADS = {
+    "crm-service": ["/api/v1/imports"],
+    "ai-agent-service": ["/api/v1/ai/knowledge/sources"],
+}
 
 
 def render() -> str:
@@ -116,15 +120,17 @@ def render() -> str:
         "      middlewares: [secure-headers, rate-limit]",
         "      entryPoints: [web, internal]",
     ]
-    # CSV imports (10 MB files + multipart overhead) get their own, slightly larger body limit.
-    out += [
-        "    crm-imports:",
-        '      rule: "PathPrefix(`/api/v1/imports`)"',
-        "      priority: 200",
-        "      service: crm-service",
-        "      middlewares: [secure-headers, rate-limit, body-limit-imports]",
-        "      entryPoints: [web, internal]",
-    ]
+    # File uploads (10 MB files + multipart overhead) get their own, slightly larger body limit.
+    for svc, prefixes in LARGE_UPLOADS.items():
+        rule = " || ".join(f"PathPrefix(`{p}`)" for p in prefixes)
+        out += [
+            f"    {svc}-uploads:",
+            f'      rule: "{rule}"',
+            "      priority: 200",
+            f"      service: {svc}",
+            "      middlewares: [secure-headers, rate-limit, body-limit-uploads]",
+            "      entryPoints: [web, internal]",
+        ]
     out += ["  services:", "    web:", "      loadBalancer:", '        servers: [{ url: "http://web:3000" }]']
     for svc in ROUTES:
         out += [f"    {svc}:", "      loadBalancer:", f'        servers: [{{ url: "http://{svc}:8000" }}]']
@@ -141,7 +147,7 @@ def render() -> str:
         "      rateLimit: { average: 100, burst: 200, period: 1s }",
         "    body-limit:",
         "      buffering: { maxRequestBodyBytes: 10485760, memRequestBodyBytes: 2097152 }",
-        "    body-limit-imports:",
+        "    body-limit-uploads:",
         "      buffering: { maxRequestBodyBytes: 11534336, memRequestBodyBytes: 2097152 }",
     ]
     return "\n".join(out) + "\n"

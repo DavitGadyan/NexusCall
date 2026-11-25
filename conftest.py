@@ -46,6 +46,14 @@ def _is_local_ip(value: str) -> bool:
     return ip.is_loopback or ip.is_private or ip.is_link_local
 
 
+def _is_ip_literal(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value.split("%")[0])
+    except ValueError:
+        return False
+    return True
+
+
 class PublicNetworkBlocked(OSError):
     pass
 
@@ -60,7 +68,9 @@ def _block_public_network():  # type: ignore[no-untyped-def]
 
     def guarded_getaddrinfo(host, *args, **kwargs):  # type: ignore[no-untyped-def]
         name = host.decode() if isinstance(host, bytes) else str(host or "")
-        if name and name.lower() not in _ALLOWED_NAMES and not _is_local_ip(name):
+        # IP literals resolve without any network traffic, so they pass here and code under test can apply
+        # its own SSRF rules; connecting to a public or metadata address is refused below.
+        if name and name.lower() not in _ALLOWED_NAMES and not _is_ip_literal(name):
             raise PublicNetworkBlocked(f"tests may not resolve public host {name!r} (set NEXUS_ALLOW_NETWORK=1)")
         return real_getaddrinfo(host, *args, **kwargs)
 
