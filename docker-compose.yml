@@ -284,6 +284,7 @@ services:
     - .env
     environment:
       NEXUS_OIDC_INTERNAL_BASE: http://keycloak:8080/realms/nexus
+      NEXUS_API_INTERNAL_URL: http://traefik:80
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/1
       SVC_TENANT_SERVICE_URL: http://tenant-service:8000
       SVC_AUDIT_SERVICE_URL: http://audit-service:8000
