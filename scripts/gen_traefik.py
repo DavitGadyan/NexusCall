@@ -25,7 +25,10 @@ ROUTES = {
         "/api/v1/platform/rls",
         "/api/v1/platform/service-accounts",
     ],
-    "crm-service": ["/api/v1/leads", "/api/v1/contacts", "/api/v1/imports", "/api/v1/segments", "/api/v1/suppressions"],
+    "crm-service": [
+        "/api/v1/tags",
+        "/api/v1/custom-fields",
+        "/api/v1/organizations","/api/v1/leads", "/api/v1/contacts", "/api/v1/imports", "/api/v1/segments", "/api/v1/suppressions"],
     "campaign-service": ["/api/v1/campaigns"],
     "call-service": ["/api/v1/calls", "/api/v1/inbound-numbers", "/webhooks/twilio"],
     "voice-service": ["/media/twilio", "/api/v1/voice"],
@@ -102,8 +105,17 @@ def render() -> str:
             "      priority: 100",
             f"      service: {svc}",
             f"      middlewares: {MIDDLEWARES}",
-            "      entryPoints: [web]",
+            "      entryPoints: [web, internal]",
         ]
+    # CSV imports (10 MB files + multipart overhead) get their own, slightly larger body limit.
+    out += [
+        "    crm-imports:",
+        '      rule: "PathPrefix(`/api/v1/imports`)"',
+        "      priority: 200",
+        "      service: crm-service",
+        "      middlewares: [secure-headers, rate-limit, body-limit-imports]",
+        "      entryPoints: [web, internal]",
+    ]
     out += ["  services:", "    web:", "      loadBalancer:", '        servers: [{ url: "http://web:3000" }]']
     for svc in ROUTES:
         out += [f"    {svc}:", "      loadBalancer:", f'        servers: [{{ url: "http://{svc}:8000" }}]']
@@ -120,6 +132,8 @@ def render() -> str:
         "      rateLimit: { average: 100, burst: 200, period: 1s }",
         "    body-limit:",
         "      buffering: { maxRequestBodyBytes: 10485760, memRequestBodyBytes: 2097152 }",
+        "    body-limit-imports:",
+        "      buffering: { maxRequestBodyBytes: 11534336, memRequestBodyBytes: 2097152 }",
     ]
     return "\n".join(out) + "\n"
 

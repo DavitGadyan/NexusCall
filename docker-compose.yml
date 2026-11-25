@@ -286,7 +286,7 @@ services:
     - .env
     environment:
       NEXUS_OIDC_INTERNAL_BASE: http://keycloak:8080/realms/nexus
-      NEXUS_API_INTERNAL_URL: http://traefik:80
+      NEXUS_API_INTERNAL_URL: http://traefik:8081
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/1
       SVC_TENANT_SERVICE_URL: http://tenant-service:8000
       SVC_AUDIT_SERVICE_URL: http://audit-service:8000
@@ -463,15 +463,15 @@ services:
     volumes:
     - approle:/approle:ro
     depends_on: &id006
-      migrate:
+      migrate: &id007
         condition: service_completed_successfully
-      rabbitmq-bootstrap:
+      rabbitmq-bootstrap: &id008
         condition: service_completed_successfully
-      vault-bootstrap:
+      vault-bootstrap: &id009
         condition: service_completed_successfully
-      redis:
+      redis: &id010
         condition: service_healthy
-      keycloak:
+      keycloak: &id011
         condition: service_healthy
   audit-service:
     restart: unless-stopped
@@ -1124,6 +1124,128 @@ services:
     volumes:
     - approle:/approle:ro
     depends_on: *id006
+  worker-imports:
+    restart: unless-stopped
+    read_only: true
+    cap_drop: *id001
+    security_opt: *id002
+    tmpfs: *id003
+    networks: *id004
+    mem_limit: 256m
+    env_file: *id005
+    image: nexuscall/crm-service:dev
+    profiles:
+    - crm
+    command:
+    - celery
+    - -A
+    - crm_service.worker
+    - worker
+    - -Q
+    - imports.process
+    - --concurrency
+    - '2'
+    - --without-heartbeat
+    - --without-gossip
+    - --without-mingle
+    environment:
+      SERVICE_NAME: crm-service
+      ENV: ${ENV:-development}
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      DATABASE_URL: postgresql+asyncpg://crm_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
+      INSPECTOR_DATABASE_URL: postgresql+asyncpg://crm_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://crm_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
+      REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
+      AMQP_URL: amqp://crm-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
+      OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: svc-crm-service
+      SERVICE_CLIENT_SECRET: ${KC_DEV_SERVICE_CLIENT_SECRET}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /approle/crm-service/role_id
+      VAULT_SECRET_ID_FILE: /approle/crm-service/secret_id
+      FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
+      PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+    volumes:
+    - approle:/approle:ro
+    depends_on:
+      migrate: *id007
+      rabbitmq-bootstrap: *id008
+      vault-bootstrap: *id009
+      redis: *id010
+      keycloak: *id011
+      crm-service:
+        condition: service_started
+    healthcheck:
+      disable: true
+  worker-campaign:
+    restart: unless-stopped
+    read_only: true
+    cap_drop: *id001
+    security_opt: *id002
+    tmpfs: *id003
+    networks: *id004
+    mem_limit: 256m
+    env_file: *id005
+    image: nexuscall/campaign-service:dev
+    profiles:
+    - crm
+    command:
+    - celery
+    - -A
+    - campaign_service.worker
+    - worker
+    - -Q
+    - calls.schedule
+    - --concurrency
+    - '2'
+    - --without-heartbeat
+    - --without-gossip
+    - --without-mingle
+    environment:
+      SERVICE_NAME: campaign-service
+      ENV: ${ENV:-development}
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      DATABASE_URL: postgresql+asyncpg://campaign_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
+      INSPECTOR_DATABASE_URL: postgresql+asyncpg://campaign_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://campaign_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
+      REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
+      AMQP_URL: amqp://campaign-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
+      OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
+      OIDC_JWKS_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/nexus/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: svc-campaign-service
+      SERVICE_CLIENT_SECRET: ${KC_DEV_SERVICE_CLIENT_SECRET}
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /approle/campaign-service/role_id
+      VAULT_SECRET_ID_FILE: /approle/campaign-service/secret_id
+      FAKE_PROVIDERS_URL: http://fake-providers:8000
+      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      S3_ENDPOINT_URL: http://objectstore:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
+      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
+      PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
+    volumes:
+    - approle:/approle:ro
+    depends_on:
+      migrate: *id007
+      rabbitmq-bootstrap: *id008
+      vault-bootstrap: *id009
+      redis: *id010
+      keycloak: *id011
+      campaign-service:
+        condition: service_started
+    healthcheck:
+      disable: true
 networks:
   internal:
     driver: bridge

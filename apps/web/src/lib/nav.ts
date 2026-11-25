@@ -37,6 +37,7 @@ export const tenantAdminNav: NavSection[] = [
     { label: "Phone numbers", href: "/admin/numbers", permission: "calls:manage" },
     { label: "AI settings", href: "/admin/ai", permission: "tenant:manage" },
     { label: "Provider connections", href: "/admin/connections", permission: "integrations:manage" },
+    { label: "Support access", href: "/admin/support-access", permission: "audit:read" },
     { label: "Audit log", href: "/admin/audit", permission: "audit:read" },
   ]},
 ];
@@ -50,7 +51,8 @@ export const platformNav: NavSection[] = [
     { label: "Users", href: "/platform/users", permission: "platform:users:read" },
     { label: "Service accounts", href: "/platform/service-accounts", permission: "platform:iam:manage" },
     { label: "Roles & permissions", href: "/platform/roles", permission: "platform:iam:read" },
-    { label: "Auth events", href: "/platform/auth-events", permission: "platform:iam:read" },
+    { label: "Privileged requests", href: "/platform/privileged-requests", permission: "platform:iam:read" },
+    { label: "Auth events & IdP", href: "/platform/auth-events", permission: "platform:iam:read" },
   ]},
   { label: "Security", items: [
     { label: "RLS coverage", href: "/platform/security/rls", permission: "platform:security:read" },
@@ -70,6 +72,8 @@ export const platformNav: NavSection[] = [
     { label: "Integrations", href: "/platform/integrations", permission: "platform:integrations:read" },
     { label: "Usage", href: "/platform/usage", permission: "platform:usage:read" },
     { label: "Settings", href: "/platform/settings", permission: "platform:settings:read" },
+    { label: "Feature flags", href: "/platform/settings?tab=flags", permission: "platform:settings:read" },
+    { label: "Kill switches", href: "/platform/settings?tab=kill_switches", permission: "platform:settings:read" },
   ]},
 ];
 

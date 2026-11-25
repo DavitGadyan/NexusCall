@@ -35,7 +35,14 @@ SERVICES: list[tuple[str, str, str, list[str], dict[str, str]]] = [
 
 # Workers reuse their owning service image (same code, different command). Added per phase.
 # (name, owning compose service, command, profiles)
-WORKERS: list[tuple[str, str, list[str], list[str]]] = []
+WORKERS: list[tuple[str, str, list[str], list[str]]] = [
+    ("worker-imports", "crm-service",
+     ["celery", "-A", "crm_service.worker", "worker", "-Q", "imports.process", "--concurrency", "2",
+      "--without-heartbeat", "--without-gossip", "--without-mingle"], ["crm"]),
+    ("worker-campaign", "campaign-service",
+     ["celery", "-A", "campaign_service.worker", "worker", "-Q", "calls.schedule", "--concurrency", "2",
+      "--without-heartbeat", "--without-gossip", "--without-mingle"], ["crm"]),
+]
 
 # Outbox relays and event consumers run inside each service process (lifespan tasks) to keep the
 # laptop footprint small; FOR UPDATE SKIP LOCKED makes multiple replicas safe.
@@ -340,7 +347,7 @@ def compose() -> dict:
             "environment": {
                 "NEXUS_OIDC_INTERNAL_BASE": "http://keycloak:8080/realms/nexus",
                 # The BFF proxies /api/v1/* through the gateway on the internal network.
-                "NEXUS_API_INTERNAL_URL": "http://traefik:80",
+                "NEXUS_API_INTERNAL_URL": "http://traefik:8081",
                 "REDIS_URL": "redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/1",
                 **{f"SVC_{n.replace('-', '_').upper()}_URL": f"http://{n}:8000" for n, *_ in SERVICES},
             },

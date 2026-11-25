@@ -1,7 +1,13 @@
 # DEVELOPMENT edge router (ADR-0010). Production uses IngressRoute CRDs with TLS (Phase 8).
 entryPoints:
-  web:
+  web:  # public edge (published on 127.0.0.1 only in development)
     address: ":80"
+    transport:
+      respondingTimeouts: { readTimeout: 30s, writeTimeout: 60s, idleTimeout: 120s }
+  internal:  # NOT published: only the web BFF uses it, so client IPs it forwards can be trusted
+    address: ":8081"
+    forwardedHeaders:
+      trustedIPs: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
     transport:
       respondingTimeouts: { readTimeout: 30s, writeTimeout: 60s, idleTimeout: 120s }
 api:

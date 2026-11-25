@@ -12,97 +12,103 @@ http:
       priority: 100
       service: tenant-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     crm-service:
-      rule: "PathPrefix(`/api/v1/leads`) || PathPrefix(`/api/v1/contacts`) || PathPrefix(`/api/v1/imports`) || PathPrefix(`/api/v1/segments`) || PathPrefix(`/api/v1/suppressions`)"
+      rule: "PathPrefix(`/api/v1/tags`) || PathPrefix(`/api/v1/custom-fields`) || PathPrefix(`/api/v1/organizations`) || PathPrefix(`/api/v1/leads`) || PathPrefix(`/api/v1/contacts`) || PathPrefix(`/api/v1/imports`) || PathPrefix(`/api/v1/segments`) || PathPrefix(`/api/v1/suppressions`)"
       priority: 100
       service: crm-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     campaign-service:
       rule: "PathPrefix(`/api/v1/campaigns`)"
       priority: 100
       service: campaign-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     call-service:
       rule: "PathPrefix(`/api/v1/calls`) || PathPrefix(`/api/v1/inbound-numbers`) || PathPrefix(`/webhooks/twilio`)"
       priority: 100
       service: call-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     voice-service:
       rule: "PathPrefix(`/media/twilio`) || PathPrefix(`/api/v1/voice`)"
       priority: 100
       service: voice-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     ai-agent-service:
       rule: "PathPrefix(`/api/v1/ai/agents`) || PathPrefix(`/api/v1/knowledge`)"
       priority: 100
       service: ai-agent-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     ai-gateway:
       rule: "PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`) || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/ai/models`) || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`) || PathPrefix(`/api/v1/ai/requests`) || PathPrefix(`/api/v1/ai/security-events`)"
       priority: 100
       service: ai-gateway
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     mcp-registry:
       rule: "PathPrefix(`/api/v1/ai/tools`) || PathPrefix(`/api/v1/ai/mcp-servers`) || PathPrefix(`/api/v1/platform/ai/mcp-servers`) || PathPrefix(`/api/v1/platform/ai/tools`) || PathPrefix(`/api/v1/platform/ai/policies`) || PathPrefix(`/api/v1/ai/grants`)"
       priority: 100
       service: mcp-registry
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     tool-execution:
       rule: "PathPrefix(`/api/v1/ai/tool-approvals`)"
       priority: 100
       service: tool-execution
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     booking-service:
       rule: "PathPrefix(`/api/v1/bookings`) || PathPrefix(`/api/v1/availability`)"
       priority: 100
       service: booking-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     email-service:
       rule: "PathPrefix(`/api/v1/email/campaigns`) || PathPrefix(`/api/v1/email/templates`) || PathPrefix(`/api/v1/email/senders`) || PathPrefix(`/api/v1/email/domains`) || PathPrefix(`/webhooks/ses/events`) || PathPrefix(`/u/`)"
       priority: 100
       service: email-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     email-inbox-service:
       rule: "PathPrefix(`/api/v1/email/inbox`) || PathPrefix(`/api/v1/email/drafts`) || PathPrefix(`/api/v1/email/mailboxes`) || PathPrefix(`/webhooks/ses/inbound`)"
       priority: 100
       service: email-inbox-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     integration-service:
       rule: "PathPrefix(`/api/v1/integrations`) || PathPrefix(`/api/v1/webhooks/endpoints`) || PathPrefix(`/api/v1/platform/secrets`) || PathPrefix(`/api/v1/platform/integrations`) || PathPrefix(`/oauth/callback`)"
       priority: 100
       service: integration-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     notification-service:
       rule: "PathPrefix(`/api/v1/notifications`)"
       priority: 100
       service: notification-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     analytics-service:
       rule: "PathPrefix(`/api/v1/analytics`) || PathPrefix(`/api/v1/exports`) || PathPrefix(`/api/v1/platform/usage`)"
       priority: 100
       service: analytics-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
     audit-service:
       rule: "PathPrefix(`/api/v1/audit`) || PathPrefix(`/api/v1/platform/audit`)"
       priority: 100
       service: audit-service
       middlewares: [secure-headers, rate-limit, body-limit]
-      entryPoints: [web]
+      entryPoints: [web, internal]
+    crm-imports:
+      rule: "PathPrefix(`/api/v1/imports`)"
+      priority: 200
+      service: crm-service
+      middlewares: [secure-headers, rate-limit, body-limit-imports]
+      entryPoints: [web, internal]
   services:
     web:
       loadBalancer:
@@ -167,3 +173,5 @@ http:
       rateLimit: { average: 100, burst: 200, period: 1s }
     body-limit:
       buffering: { maxRequestBodyBytes: 10485760, memRequestBodyBytes: 2097152 }
+    body-limit-imports:
+      buffering: { maxRequestBodyBytes: 11534336, memRequestBodyBytes: 2097152 }
