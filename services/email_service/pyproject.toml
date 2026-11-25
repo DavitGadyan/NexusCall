@@ -8,6 +8,7 @@ dependencies = [
   "nexus-event-schemas",
   "nexus-provider-contracts",
   "bleach>=6.2,<7",
+  "dnspython>=2.6,<3",
 ]
 
 [tool.uv.sources]
