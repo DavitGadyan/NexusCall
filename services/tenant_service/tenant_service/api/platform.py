@@ -983,7 +983,9 @@ async def request_support(
                     "template": "support_access_requested",
                     "resource_type": "support_grant",
                     "resource_id": str(grant_id),
-                    "channel": "email",
+                    "permission": "tenant:manage",
+                    "link": "/admin/support-access",
+                    "channel": "in_app",
                 },
             ),
         )
@@ -1039,7 +1041,9 @@ async def decide_support(
                     "template": f"support_access_{status}",
                     "resource_type": "support_grant",
                     "resource_id": str(grant_id),
-                    "channel": "email",
+                    "permission": "tenant:manage",
+                    "link": "/admin/support-access",
+                    "channel": "in_app",
                 },
             ),
         )

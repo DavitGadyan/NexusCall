@@ -132,6 +132,7 @@ services:
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
+      NEXUS_BROKER_OPS_PASSWORD: ${NEXUS_BROKER_OPS_PASSWORD}
       ENV: ${ENV:-development}
     volumes:
     - ./infra/vault/bootstrap.sh:/bootstrap.sh:ro
@@ -236,6 +237,7 @@ services:
     environment:
       MIGRATION_DB_HOST: postgres
       MIGRATION_DB_PASSWORD: ${NEXUS_DB_DEV_PASSWORD}
+      ENV: ${ENV:-development}
     networks:
     - internal
     depends_on:

@@ -13,6 +13,13 @@ class Settings(ServiceSettings):
     keycloak_realm: str = "nexus"
     bff_client_id: str = "web-bff"
     idp_mode: str = "keycloak"  # keycloak | fake (fake only in development/test)
+    # Broker operations (queue view, dead-letter replay). Credentials come from Vault at
+    # platform/tenant-service/rabbitmq-ops (fields: username, password); never from code.
+    rabbitmq_management_url: str = "http://rabbitmq:15672/api"
+    rabbitmq_amqp_host: str = "rabbitmq"
+    rabbitmq_amqp_port: int = 5672
+    rabbitmq_vhost: str = "nexus"
+    infra_health_targets: tuple[str, ...] = ("web",)
     internal_client_allowlist: tuple[str, ...] = (
         "svc-crm-service",
         "svc-campaign-service",

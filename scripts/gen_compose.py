@@ -211,6 +211,7 @@ def compose() -> dict:
             "environment": {
                 "VAULT_ADDR": "http://vault:8200",
                 "VAULT_TOKEN": "${VAULT_DEV_ROOT_TOKEN}",
+                "NEXUS_BROKER_OPS_PASSWORD": "${NEXUS_BROKER_OPS_PASSWORD}",
                 "ENV": "${ENV:-development}",
             },
             "volumes": ["./infra/vault/bootstrap.sh:/bootstrap.sh:ro", "approle:/approle"],
@@ -304,7 +305,11 @@ def compose() -> dict:
             "image": "nexuscall/tools:dev",
             "build": {"context": ".", "dockerfile": "infra/docker/tools.Dockerfile"},
             "command": ["scripts/migrate_all.py"],
-            "environment": {"MIGRATION_DB_HOST": "postgres", "MIGRATION_DB_PASSWORD": "${NEXUS_DB_DEV_PASSWORD}"},
+            "environment": {
+                "MIGRATION_DB_HOST": "postgres",
+                "MIGRATION_DB_PASSWORD": "${NEXUS_DB_DEV_PASSWORD}",
+                "ENV": "${ENV:-development}",
+            },
             "networks": ["internal"],
             "depends_on": {"postgres": {"condition": "service_healthy"}},
             "restart": "no",

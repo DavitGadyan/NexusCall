@@ -26,6 +26,8 @@ jobs:
       - name: Unit tests
         run: uv run pytest packages services tests -m "not integration" -q
       - name: Integration + security tests (testcontainers)
+        env:
+          NEXUS_REQUIRE_DOCKER: "1"
         run: uv run pytest packages services tests -m integration -q
       - name: Contract drift (OpenAPI + event schemas)
         run: |

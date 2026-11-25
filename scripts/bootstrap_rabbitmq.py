@@ -93,6 +93,13 @@ def main() -> int:
                 "definition": {"dead-letter-exchange": "nexus.dlx", "delivery-limit": 6},
             },
         ).raise_for_status()
+        ops_password = os.environ["NEXUS_BROKER_OPS_PASSWORD"]
+        c.put(f"{API}/users/nexus-ops", json={"password": ops_password, "tags": "monitoring"}).raise_for_status()
+        c.put(
+            f"{API}/permissions/{VHOST}/nexus-ops",
+            json={"configure": "^$", "write": r"^(nexus\.tasks|amq\.default)$", "read": r"^.*\.dlq$"},
+        ).raise_for_status()
+        print("broker user ready: nexus-ops (monitoring; dead-letter read + replay only)")
         for svc, prefixes in PUBLISH.items():
             user = svc
             c.put(f"{API}/users/{user}", json={"password": SVC_PASSWORD, "tags": ""}).raise_for_status()

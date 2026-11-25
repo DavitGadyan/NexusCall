@@ -58,7 +58,7 @@ test-unit: ## fast tests (no Docker)
 	uv run pytest packages services tests -m "not integration" -q
 
 test-integration: ## tests against real Postgres/RabbitMQ via testcontainers
-	uv run pytest packages services tests -m integration -q
+	NEXUS_REQUIRE_DOCKER=1 uv run pytest packages services tests -m integration -q
 
 test-web:
 	pnpm --filter @nexuscall/web test

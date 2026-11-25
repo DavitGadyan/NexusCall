@@ -37,7 +37,9 @@ write_policy() {
 
 T="secret/data/${E}/tenants/+"
 M="secret/metadata/${E}/tenants/+"
-write_policy tenant-service 'path "transit/encrypt/bff-session" { capabilities = ["update"] }'
+write_policy tenant-service 'path "transit/encrypt/bff-session" { capabilities = ["update"] }' \
+  "path \"secret/data/${E}/service-accounts/*\" { capabilities = [\"create\", \"update\"] }" \
+  "path \"secret/metadata/${E}/service-accounts/*\" { capabilities = [\"read\", \"delete\"] }"
 write_policy crm-service
 write_policy campaign-service
 write_policy call-service "path \"${T}/twilio/*\" { capabilities = [\"read\"] }"
@@ -72,4 +74,7 @@ vault kv put "secret/${E}/platform/email-service/ses" region="us-east-1" access_
   secret_access_key="fake-ses-secret-dev-only" >/dev/null
 vault kv put "secret/${E}/platform/notification-service/ses" region="us-east-1" access_key_id="FAKEDEVONLY" \
   secret_access_key="fake-ses-secret-dev-only" >/dev/null
+# Broker operations identity used by the platform console (queue view, audited dead-letter replay).
+vault kv put "secret/${E}/platform/tenant-service/rabbitmq-ops" username="nexus-ops" \
+  password="${NEXUS_BROKER_OPS_PASSWORD:?NEXUS_BROKER_OPS_PASSWORD must be set (dev only)}" >/dev/null
 echo "vault bootstrap complete"
