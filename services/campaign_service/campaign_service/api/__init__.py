@@ -1,3 +1,5 @@
 from fastapi import APIRouter
 
-routers: list[APIRouter] = []
+from campaign_service.api import campaigns, internal
+
+routers: list[APIRouter] = [campaigns.router, internal.router]
