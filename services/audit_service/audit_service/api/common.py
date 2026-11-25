@@ -29,6 +29,11 @@ def _utc(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+def _iso(value: datetime | None) -> str | None:
+    utc = _utc(value)
+    return utc.isoformat() if utc else None
+
+
 @dataclass(frozen=True, slots=True)
 class AuditFilters:
     action: str | None = None
@@ -69,8 +74,8 @@ class AuditFilters:
             "resource_type": self.resource_type,
             "resource_id": self.resource_id,
             "outcome": self.outcome,
-            "from": _utc(self.from_).isoformat() if self.from_ else None,
-            "to": _utc(self.to).isoformat() if self.to else None,
+            "from": _iso(self.from_),
+            "to": _iso(self.to),
         }
         return {k: v for k, v in out.items() if v is not None}
 

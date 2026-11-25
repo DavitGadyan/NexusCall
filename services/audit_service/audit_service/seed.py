@@ -6,6 +6,7 @@ Idempotent: deterministic event ids, and `append` dedupes on event id. Runs as `
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from audit_service.chain import AuditRecord, append
 from nexus_core.context import Actor
@@ -13,7 +14,7 @@ from nexus_core.db import Database
 from nexus_core.devseed import DEMO_TENANTS, DEMO_USERS, demo_id
 
 SEED_ACTOR = Actor("system", "dev-seed")
-_ACTIONS = (
+_ACTIONS: tuple[tuple[str, str, dict[str, Any]], ...] = (
     ("invitation.created", "invitation", {"roles": ["analyst"]}),
     ("membership.updated", "membership", {"roles": ["campaign_manager"]}),
     ("settings.updated", "tenant_settings", {"section": "communication"}),
