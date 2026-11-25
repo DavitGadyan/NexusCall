@@ -27,6 +27,11 @@
 - Internal API exactly as in conventions §5.
 - There are no internal mutation endpoints. A model or a service can never register servers, or change tools or grants.
 
+### OWASP additions (owasp_sec.md LLM03/LLM04)
+- MCP servers are pinned: store `version` and `sha256` of the reviewed release (or the image digest), plus `reviewed_by`/`reviewed_at`. A server whose reported version or identity differs from the pinned one is disabled automatically, with a security event.
+- Every MCP server has its own service identity and least-privilege credential (a Vault reference). Never share an admin credential.
+- Per-agent and per-tool invocation budgets (calls per minute) and a circuit breaker per MCP server.
+
 ## tool-execution
 - Tables:
   - `tool_execution_records`

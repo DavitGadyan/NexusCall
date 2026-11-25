@@ -47,6 +47,20 @@ SENSITIVE_KEYS = frozenset(
     }
 )
 REDACTED = "[REDACTED]"
+QUIET_LOGGERS = (
+    "uvicorn.access",
+    "anthropic",
+    "anthropic._base_client",
+    "httpx",
+    "httpx2",
+    "httpcore",
+    "openai",
+    "botocore",
+    "aiobotocore",
+    "urllib3",
+    "aio_pika",
+    "aiormq",
+)
 
 _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?i)bearer\s+[a-z0-9\-._~+/]+=*"), "Bearer [REDACTED]"),
@@ -112,5 +126,7 @@ def configure_logging(service: str, env: str, level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level.upper())
-    for noisy in ("uvicorn.access",):
+    # These libraries log full request/response bodies (prompts, emails, tokens) at DEBUG/INFO.
+    # They are pinned to WARNING whatever LOG_LEVEL says (OWASP LLM02: no sensitive content in logs).
+    for noisy in QUIET_LOGGERS:
         logging.getLogger(noisy).setLevel(logging.WARNING)

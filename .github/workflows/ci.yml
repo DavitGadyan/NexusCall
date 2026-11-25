@@ -25,6 +25,10 @@ jobs:
         run: uv run mypy packages/nexus_core/nexus_core packages/event_schemas/nexus_events
       - name: Unit tests
         run: uv run pytest packages services tests -m "not integration" -q
+      - name: OWASP LLM Top 10 gateway suite
+        env:
+          NEXUS_REQUIRE_DOCKER: "1"
+        run: uv run pytest services/ai_gateway -q
       - name: Integration + security tests (testcontainers)
         env:
           NEXUS_REQUIRE_DOCKER: "1"
@@ -89,6 +93,13 @@ jobs:
           push: false
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+      - name: SBOM (CycloneDX, Syft) — OWASP LLM04 supply-chain inventory
+        uses: anchore/sbom-action@v0
+        with:
+          image: nexuscall/${{ matrix.image.name }}:ci
+          format: cyclonedx-json
+          output-file: sbom-${{ matrix.image.name }}.cdx.json
+          artifact-name: sbom-${{ matrix.image.name }}.cdx.json
       - name: Scan image (Trivy)
         uses: aquasecurity/trivy-action@0.29.0
         with:

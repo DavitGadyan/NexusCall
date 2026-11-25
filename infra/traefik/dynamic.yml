@@ -44,7 +44,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web]
     ai-gateway:
-      rule: "PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`) || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/ai/models`) || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`)"
+      rule: "PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`) || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/ai/models`) || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`) || PathPrefix(`/api/v1/ai/requests`) || PathPrefix(`/api/v1/ai/security-events`)"
       priority: 100
       service: ai-gateway
       middlewares: [secure-headers, rate-limit, body-limit]

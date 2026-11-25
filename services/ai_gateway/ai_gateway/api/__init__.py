@@ -1,3 +1,5 @@
 from fastapi import APIRouter
 
-routers: list[APIRouter] = []
+from ai_gateway.api import admin, internal
+
+routers: list[APIRouter] = [internal.router, admin.tenant_router, admin.platform_router]

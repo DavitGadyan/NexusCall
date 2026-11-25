@@ -7,10 +7,13 @@ select = ["E", "F", "W", "I", "B", "BLE", "UP", "S", "ASYNC", "RUF", "SIM", "PL"
 ignore = ["PLR0913", "PLR2004", "S101", "RUF012", "PLR0911", "B008", "PLC0415", "N818", "RUF001", "RUF002", "RUF003"]
 
 [lint.per-file-ignores]
-"**/tests/**" = ["S105", "S106", "S108", "PLR2004", "S311"]
+"**/tests/**" = ["S105", "S106", "S108", "PLR2004", "S311", "S608", "E501"]
 "**/migrations/**" = ["E501", "N999", "INP001"]
 "scripts/**" = ["S603", "S607", "T201", "PLR0915", "E501", "S108"]
 "packages/nexus_core/nexus_core/app.py" = ["PLR0915"]
+# Long regex literals and the single streaming state machine are clearer kept whole.
+"services/ai_gateway/ai_gateway/guards.py" = ["E501"]
+"services/ai_gateway/ai_gateway/orchestrator.py" = ["PLR0912", "PLR0915"]
 "**/tables.py" = ["E501", "S608"]
 # Identifier-validated DDL builders (see _check()) and migrations are the only places allowed to build SQL strings.
 "packages/nexus_core/nexus_core/rls.py" = ["S608"]

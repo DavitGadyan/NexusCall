@@ -7,7 +7,8 @@ dependencies = [
   "nexus-core",
   "nexus-event-schemas",
   "nexus-provider-contracts",
-  "anthropic>=0.40",
+  "anthropic>=2.14,<3",
+  "jsonschema>=4.23,<5",
 ]
 
 [tool.uv.sources]

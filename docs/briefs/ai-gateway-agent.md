@@ -1,78 +1,35 @@
-# Brief: ai-gateway, ai-agent-service
+# Brief: ai-agent-service (agents, prompts, knowledge/RAG, drafting)
 
-**Paths you own:** `services/ai_gateway`, `services/ai_agent_service`, `services/fake_providers/fake_providers/routers/anthropic.py`, `services/fake_providers/fake_providers/routers/voyage.py`.
-**Databases / app roles:** `aigw` / `aigw_app`, `agent` / `agent_app` (the `vector` extension exists in `agent`).
-**build.md:** §3.1 I; all of §24; §25; §10.1.
+> **Update 2026-11-26:** the **AI Gateway is built** (`services/ai_gateway`, see
+> `docs/security/OWASP_LLM_TOP10_ASSESSMENT.md`). Do **not** edit it. Call it exactly per
+> `docs/BUILD_CONVENTIONS.md` §5 (`/internal/v1/ai/responses`, `/embeddings`), passing knowledge chunks,
+> emails and transcripts as content blocks with `source` = `knowledge` / `email` / `transcript` (they are
+> always untrusted). Read `owasp_sec.md` (LLM05 and LLM09 especially).
 
-**First step:** invoke the `claude-api` skill and follow it for the Anthropic adapter. Use the official `anthropic` Python SDK (already a dependency) with the async client, streaming, tool use and structured output.
+**Paths you own:** `services/ai_agent_service`, `services/fake_providers/fake_providers/routers/voyage.py` (optional;
+the gateway already has an in-process fake embedder).
+**Database / app role:** `agent` / `agent_app` (the `vector` extension exists).
+**build.md:** §3.1 I; §24.6, §24.7.
 
-Default models:
-
-| Use | Model |
-|---|---|
-| Voice turns | `claude-haiku-5-5` |
-| Drafts and summaries | `claude-sonnet-5-5` |
-| Evaluations | `claude-opus-5-5` |
-
-## ai-gateway
-- Tables (§24.9):
-  - `ai_providers`* and `ai_models`*: model id, capabilities, input and output price in micros per MTok, enabled, allowed data classifications.
-  - `routing_policies`: purpose → ordered models, and whether failover is allowed.
-  - `tenant_model_allowlists`
-  - `ai_budget_policies`: monthly limit per tenant or agent, in micros.
-  - `ai_requests`: metadata only. **Never store prompt or completion text.**
-  - `ai_usage_records`
-  - `ai_security_events`
-  - `ai_kill_switches`*: scope platform | provider | model | tenant | agent.
-
-  (* = platform-scoped.)
-- Internal API exactly as in conventions §5: responses, stream, embeddings.
-- Policy pipeline before every provider call, in this order:
-  1. Caller allowlist.
-  2. Tenant `ai` settings: `effective_ai_enabled`, `allowed_models`, `data_classification_max`.
-  3. Kill switches.
-  4. Model resolution. The model must be platform-enabled, tenant-allowed and allowed for the classification.
-  5. Budget. On a breach, deny and emit `ai.budget.exceeded` once per period.
-  6. Size limits.
-  7. Per-tenant rate and concurrency.
-  8. Circuit breaker per provider.
-
-  Failover happens only if the routing policy allows it and the fallback passes every check above.
-- Prompt assembly:
-  - `system` stays separate.
-  - Each untrusted block is wrapped as clearly delimited, source-labelled data. This is defense in depth, not the security boundary.
-  - Secrets never go into prompts.
-- Tools:
-  1. Take the granted specs from mcp-registry and intersect them with the requested `tool_ids`.
-  2. Send each proposed call to `tool-execution /internal/v1/tools/execute`. Use the context, and an idempotency key built from the request id and the tool call id.
-  3. Feed the result back as untrusted tool content. Stop after 4 rounds.
-
-  A proposal for an ungranted or unknown tool is never forwarded. Record a security event and continue.
-- Output: when `response_schema` is given, validate the JSON against it. Allow one repair retry, then return the error `invalid_model_output`.
-- Metering: tokens, cost, latency. Emit `ai.request.completed` with IDs and metrics only.
-- Providers:
-  - Anthropic, real. The key comes from `CredentialResolver.resolve(tenant, "anthropic", allow_platform_default=True)`.
-  - Fake: the same adapter code pointed at `settings.fake_providers_url + "/anthropic"`, so the real code path is exercised, streaming included.
-  - Embeddings: Voyage real (`voyage-3`, 1024 dimensions, httpx), plus a fake.
-- Fake routers. They are deterministic and speak the Messages API wire shape, including SSE streaming.
-  - They return schema-valid JSON for draft, classification and postprocess requests.
-  - For voice they return short replies. When the caller mentions booking, they propose `booking.find_slots` and then `booking.create_tentative`, if those tools are offered.
-  - **Adversarial hook:** when untrusted content contains `IGNORE ALL PREVIOUS INSTRUCTIONS`, the fake model obeys the injected text as far as it can. For example it proposes the tool calls named there, even ungranted ones, or it claims approval. This lets tests prove that the platform blocks the action, not the model.
-  - `voyage.py` returns deterministic hash-based unit vectors.
-- Public API:
-  - `GET /api/v1/ai/models`
-  - `GET /api/v1/ai/usage` (`ai:usage:read`)
-  - `GET` / `PUT /api/v1/ai/budgets` (`tenant:manage`, bounded by the platform maximum)
-- Platform API (`platform:ai:read`; changes need `platform:ai:manage` and step-up, and are audited): providers, models, routing, tenant allowlists, `POST /api/v1/platform/ai/kill-switches`, security events, usage.
-- Tests (§24.11):
-  - An unapproved model is denied.
-  - The allowlist and classification are enforced before any provider call. Assert that the provider mock was not called.
-  - Budget, kill switch and breaker work.
-  - An ungranted tool proposal is not executed.
-  - An injection in untrusted content cannot trigger tools outside the grants.
-  - Schema validation works.
-  - Cross-tenant isolation holds.
-  - No prompt text is persisted or logged.
+## OWASP requirements for this service (from owasp_sec.md; each needs a test)
+- **LLM09 retrieval isolation:**
+  - The tenant filter is enforced inside the similarity SQL by forced RLS on `knowledge_chunks`. Never filter after a global search.
+  - Add a source ACL (`classification`, optional `allowed_roles`), derived server-side.
+  - Write a raw-SQL probe test that proves tenant B's chunks are never candidates.
+- **LLM09 oracle protection:**
+  - Rate-limit the search endpoints.
+  - Do not return raw similarity scores to ordinary (non-admin) clients; return rank only.
+  - Monitor repeated retrieval failures (jamming).
+- **LLM09 lifecycle:**
+  - Deleting a document or source deletes its chunks and embeddings in the same transaction, and removes the stored file.
+  - Changing the embedding model re-embeds the whole corpus. Track `embedding_model` on every chunk, and never mix models in one search.
+- **LLM05 ingestion pipeline:** file type and size validation → (optional) malware scan → provenance (`uploaded_by`, source, version, sha256) → PII classification flag → content analysis.
+  - Gateway injection signals mark a document `needs_review`.
+  - Sources marked high-risk need human approval before their chunks become retrievable.
+  - The `approved` flag is set only by that workflow, never by the client.
+- **LLM05/LLM07 grounding:** drafting returns `citations` (chunk and source ids) for factual claims. A draft with no supporting chunk for a factual answer is flagged `ungrounded` in `quality.flags`.
+- **LLM01:** the drafting call requests **no tools**.
+- **Evaluations:** datasets, cases and runs that include injection and poisoning cases.
 
 ## ai-agent-service
 - Tables:

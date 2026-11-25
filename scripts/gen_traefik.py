@@ -39,6 +39,8 @@ ROUTES = {
         "/api/v1/ai/models",
         "/api/v1/ai/usage",
         "/api/v1/ai/budgets",
+    "/api/v1/ai/requests",
+    "/api/v1/ai/security-events",
     ],
     "mcp-registry": [
         "/api/v1/ai/tools",

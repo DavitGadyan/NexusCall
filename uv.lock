@@ -918,6 +918,7 @@ version = "0.1.0"
 source = { editable = "services/ai_gateway" }
 dependencies = [
     { name = "anthropic" },
+    { name = "jsonschema" },
     { name = "nexus-core" },
     { name = "nexus-event-schemas" },
     { name = "nexus-provider-contracts" },
@@ -925,7 +926,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.40" },
+    { name = "anthropic", specifier = ">=2.14,<3" },
+    { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "nexus-core", editable = "packages/nexus_core" },
     { name = "nexus-event-schemas", editable = "packages/event_schemas" },
     { name = "nexus-provider-contracts", editable = "packages/provider_contracts" },
