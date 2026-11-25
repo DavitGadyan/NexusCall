@@ -98,12 +98,12 @@ DLX_EXCHANGE = "nexus.dlx"
 
 def declare_dead_letter_queues(broker_url: str, queues: tuple[str, ...] = QUEUES) -> None:
     """Declare `<queue>.dlq` (quorum) bound to the dead-letter exchange. Idempotent; run at bootstrap."""
-    from kombu import Connection
+    from kombu import Connection  # type: ignore[attr-defined]
 
     dlx = Exchange(DLX_EXCHANGE, type="topic", durable=True)  # type: ignore[no-untyped-call]
     with Connection(broker_url) as conn:  # type: ignore[no-untyped-call]
         channel = conn.channel()
-        dlx(channel).declare()
+        dlx(channel).declare()  # type: ignore[no-untyped-call]
         for q in queues:
             Queue(  # type: ignore[no-untyped-call]
                 f"{q}.dlq", dlx, routing_key=f"{q}.dlq", durable=True, queue_arguments={"x-queue-type": "quorum"}
