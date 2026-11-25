@@ -23,7 +23,7 @@ def health_router(service: str, version: str, checks: dict[str, ReadinessCheck])
         async def run(name: str, check: ReadinessCheck) -> tuple[str, bool]:
             try:
                 return name, bool(await asyncio.wait_for(check(), timeout=2.0))
-            except Exception:
+            except Exception:  # noqa: BLE001 - readiness reports, never raises
                 return name, False
 
         results = dict(await asyncio.gather(*(run(n, c) for n, c in checks.items())))

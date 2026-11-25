@@ -33,6 +33,10 @@ class ServiceSettings(BaseSettings):
 
     # Data plane. The URL must use the service's *_app role (non-owner, no BYPASSRLS).
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost/unset")
+    # Read-only catalog role for the RLS coverage dashboard; audited cross-tenant role (break-glass/platform audit).
+    inspector_database_url: SecretStr | None = None
+    platform_database_url: SecretStr | None = None
+    rls_scan_clients: tuple[str, ...] = ("svc-tenant-service",)
     db_pool_size: int = 10
     db_max_overflow: int = 5
     redis_url: SecretStr = SecretStr("redis://localhost:6379/0")

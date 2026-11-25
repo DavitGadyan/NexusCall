@@ -435,6 +435,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://tenant_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://tenant_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://tenant_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://tenant-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -483,6 +484,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://audit_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://audit_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://audit_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://audit-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -521,6 +523,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://notify_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://notify_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://notify_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://notification-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -559,6 +562,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://crm_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://crm_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://crm_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://crm-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -597,6 +601,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://campaign_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://campaign_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://campaign_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://campaign-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -637,6 +642,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://agent_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://agent_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://agent_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://ai-agent-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -677,6 +683,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://aigw_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://aigw_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://aigw_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://ai-gateway:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -716,6 +723,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://mcpreg_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://mcpreg_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://mcpreg_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://mcp-registry:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -755,6 +763,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://toolexec_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://toolexec_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://toolexec_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://tool-execution:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -793,6 +802,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://call_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://call_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://call_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://call-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -831,6 +841,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://voice_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://voice_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://voice_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://voice-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -869,6 +880,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://booking_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://booking_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://booking_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://booking-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -907,6 +919,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://email_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://email_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://email_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://email-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -945,6 +958,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://inbox_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://inbox_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://inbox_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://email-inbox-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -983,6 +997,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://integration_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://integration_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://integration_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://integration-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}
@@ -1021,6 +1036,7 @@ services:
       PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       DATABASE_URL: postgresql+asyncpg://analytics_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://analytics_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
+      PLATFORM_DATABASE_URL: postgresql+asyncpg://analytics_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       REDIS_URL: redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0
       AMQP_URL: amqp://analytics-service:${NEXUS_BROKER_DEV_PASSWORD}@rabbitmq:5672/nexus
       OIDC_ISSUER: ${NEXUS_OIDC_PUBLIC_ISSUER}

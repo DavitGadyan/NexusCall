@@ -3,7 +3,7 @@ target-version = "py312"
 extend-exclude = ["**/migrations/versions/*.py.tmpl"]
 
 [lint]
-select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF", "SIM", "PL", "N"]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "S", "ASYNC", "RUF", "SIM", "PL", "N"]
 ignore = ["PLR0913", "PLR2004", "S101", "RUF012", "PLR0911", "B008", "PLC0415", "N818", "RUF001", "RUF002", "RUF003"]
 
 [lint.per-file-ignores]

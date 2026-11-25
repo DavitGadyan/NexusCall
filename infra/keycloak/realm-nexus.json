@@ -819,7 +819,10 @@
           "manage-users",
           "view-users",
           "query-users",
-          "view-events"
+          "view-events",
+          "manage-clients",
+          "view-clients",
+          "view-realm"
         ]
       },
       "realmRoles": [

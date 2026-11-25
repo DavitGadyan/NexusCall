@@ -153,6 +153,9 @@ def create_service_app(
     install_tracing(app, settings.service_name, settings.otel_exporter_otlp_endpoint)
 
     app.include_router(health_router(settings.service_name, version, checks))
+    from nexus_core.rls_api import rls_router
+
+    app.include_router(rls_router(settings))
     for router in routers:
         app.include_router(router)
     return app

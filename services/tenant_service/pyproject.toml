@@ -7,6 +7,7 @@ dependencies = [
   "nexus-core",
   "nexus-event-schemas",
   "nexus-provider-contracts",
+  "email-validator>=2.2,<3",
 ]
 
 [tool.uv.sources]

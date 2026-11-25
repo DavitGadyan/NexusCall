@@ -79,7 +79,7 @@ class OutboxRelay:
                 )
                 try:
                     await exchange.publish(msg, routing_key=row.event_type)  # confirm awaited
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - recorded; message retried or dead-lettered
                     await s.execute(
                         update(self.t)
                         .where(self.t.c.id == row.id)
@@ -137,7 +137,7 @@ class EventConsumer:
     async def handle_message(self, message: AbstractIncomingMessage) -> None:
         try:
             event = EventEnvelope.model_validate_json(message.body)
-        except Exception:
+        except Exception:  # noqa: BLE001 - recorded; message retried or dead-lettered
             log.error("event_malformed", extra={"consumer": self.name})
             await message.reject(requeue=False)
             return

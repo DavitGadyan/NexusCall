@@ -61,6 +61,7 @@ def py_env(name: str, db: str) -> dict[str, str]:
         "PROVIDER_MODE": "${PROVIDER_MODE:-fake}",
         "DATABASE_URL": f"postgresql+asyncpg://{db}_app:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
         "INSPECTOR_DATABASE_URL": f"postgresql+asyncpg://{db}_inspector:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
+        "PLATFORM_DATABASE_URL": f"postgresql+asyncpg://{db}_platform:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
         "REDIS_URL": "redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/0",
         "AMQP_URL": f"amqp://{name}:${{NEXUS_BROKER_DEV_PASSWORD}}@rabbitmq:5672/nexus",
         "OIDC_ISSUER": "${NEXUS_OIDC_PUBLIC_ISSUER}",

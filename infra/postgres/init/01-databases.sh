@@ -32,15 +32,19 @@ DO \$\$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}_inspector') THEN
     CREATE ROLE ${db}_inspector LOGIN PASSWORD '${NEXUS_DB_DEV_PASSWORD}' NOSUPERUSER NOBYPASSRLS CONNECTION LIMIT 3;
   END IF;
+  -- Separate, audited cross-tenant read path (break-glass / platform audit). Granted per table by migrations.
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${db}_platform') THEN
+    CREATE ROLE ${db}_platform LOGIN PASSWORD '${NEXUS_DB_DEV_PASSWORD}' NOSUPERUSER NOBYPASSRLS CONNECTION LIMIT 10;
+  END IF;
 END \$\$;
 SQL
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -c "CREATE DATABASE ${db} OWNER ${db}_owner" || true
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<SQL
 REVOKE ALL ON DATABASE ${db} FROM PUBLIC;
-GRANT CONNECT ON DATABASE ${db} TO ${db}_app, ${db}_inspector;
+GRANT CONNECT ON DATABASE ${db} TO ${db}_app, ${db}_inspector, ${db}_platform;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 ALTER SCHEMA public OWNER TO ${db}_owner;
-GRANT USAGE ON SCHEMA public TO ${db}_app, ${db}_inspector;
+GRANT USAGE ON SCHEMA public TO ${db}_app, ${db}_inspector, ${db}_platform;
 ALTER DEFAULT PRIVILEGES FOR ROLE ${db}_owner IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${db}_app;
 -- Extensions that are not 'trusted' must be created by the bootstrap superuser.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

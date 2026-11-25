@@ -21,7 +21,7 @@ def pg():
     try:
         container = tc.PostgresContainer("postgres:16-alpine", driver=None)
         container.start()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - skip when Docker is unavailable
         pytest.skip(f"Docker unavailable: {exc}")
     yield container
     container.stop()
