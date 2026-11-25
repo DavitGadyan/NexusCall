@@ -8,6 +8,7 @@ dependencies = [
   "nexus-event-schemas",
   "nexus-provider-contracts",
   "phonenumbers>=8.13,<10",
+  "python-multipart>=0.0.18,<0.1",
 ]
 
 [tool.uv.sources]
