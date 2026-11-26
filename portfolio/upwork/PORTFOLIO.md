@@ -42,9 +42,32 @@ All of these are true of the delivered codebase. They describe what was built an
 
 | File | Use |
 |---|---|
-| `media/thumbnail-b.jpg` | Upwork thumbnail (recommended) |
-| `media/thumbnail-a.jpg` | Alternative thumbnail |
-| `media/nexuscall-demo.mp4` | 1.5-minute demo video with music and captions |
-| `screenshots/*.png` | Product screenshots, in story order |
+| `media/thumbnail-owasp.jpg` | **Upwork thumbnail (recommended):** laptop, AI Gateway shield, "OWASP LLM Top 10 Protected" badge |
+| `media/thumbnail-b.jpg`, `media/thumbnail-a.jpg` | Alternative thumbnails |
+| `media/nexuscall-demo.mp4` | 86-second demo video, 1920x1080, with music and captions |
+| `media/shield-badge.png` | Transparent AI Gateway / OWASP badge |
+| `screenshots/*.png` | 19 product screenshots (3200x2000), in story order |
 
-Note: the screenshots and video use a demonstration workspace ("Acme Home Services") with sample data. The product, its features and the interface are real.
+### Screenshot captions (paste into Upwork in this order)
+
+1. **01-workspace-dashboard:** Live dashboard: calls answered, qualified leads, appointments, AI replies and cost, with 30-day trends.
+2. **02-call-campaigns:** Outbound AI call campaigns with calling windows, pacing and a workspace kill switch.
+3. **03-call-campaign-detail:** A running campaign: audience, progress and call outcomes.
+4. **04-call-history:** Every inbound and outbound call, with masked phone numbers and outcomes.
+5. **05-call-detail-transcript:** Call timeline and AI conversation transcript. Opening it is recorded in the audit log.
+6. **06-bookings-calendar:** Appointments booked by the AI agent; double bookings are rejected.
+7. **07-crm-leads:** Built-in CRM with lead scores, status and sources.
+8. **08-ai-agents:** Voice and email AI agents with versioned prompts and tool grants.
+9. **09-inbox:** Shared inbox: inbound email is classified and AI reply drafts are prepared.
+10. **10-inbox-ai-draft-review:** Approval queue: a person approves every AI-written email before it is sent.
+11. **11-email-campaigns:** Email campaigns with delivery, bounce and complaint reporting.
+12. **12-analytics:** Analytics: call, email, AI-draft and booking funnels, and costs.
+13. **13-tenant-ai-settings-usage:** Per-client AI settings: allowed models, budget, data classification.
+14. **14-platform-overview:** Platform console: all client workspaces, usage and cost by tenant.
+15. **15-platform-tenants:** Multi-tenant directory of client workspaces.
+16. **16-platform-usage:** Usage and cost per tenant: telephony, AI and email.
+17. **17-ai-gateway-owasp-security:** AI Gateway security events: prompt injection (OWASP LLM01) and denied tools (LLM03, LLM06), detected live.
+18. **18-security-rls-coverage:** Row-level security coverage scan across all 16 service databases.
+19. **19-security-vault-secrets:** Provider credentials are stored in HashiCorp Vault; only metadata is shown.
+
+Note: the screenshots and the video use a demonstration workspace ("Acme Home Services") and fictional clients with sample data. The product, its features and its interface are real. The security events in screenshot 17 include prompt-injection attacks sent to the live AI Gateway during recording.
