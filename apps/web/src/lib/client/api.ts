@@ -55,6 +55,7 @@ export function signInUrl(returnTo?: string): string {
 
 export type ApiOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** JSON-serialised, except FormData, which is sent as multipart (the browser sets the boundary). */
   body?: unknown;
   /** true generates a key; a string is used as-is (keep it stable across retries of the same action). */
   idempotencyKey?: boolean | string;
@@ -71,7 +72,8 @@ function toBffUrl(path: string): string {
 export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
   const method = opts.method ?? (opts.body === undefined ? "GET" : "POST");
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = typeof FormData !== "undefined" && opts.body instanceof FormData;
+  if (opts.body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (method !== "GET") {
     const token = readCsrfToken();
     if (token) headers["X-CSRF-Token"] = token;
@@ -79,12 +81,13 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   if (opts.idempotencyKey) {
     headers["Idempotency-Key"] = typeof opts.idempotencyKey === "string" ? opts.idempotencyKey : crypto.randomUUID();
   }
+  const url = toBffUrl(path); // a programming error, not a network error: throw before the request
   let resp: Response;
   try {
-    resp = await fetch(toBffUrl(path), {
+    resp = await fetch(url, {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.body === undefined ? undefined : isForm ? (opts.body as FormData) : JSON.stringify(opts.body),
       credentials: "same-origin",
       cache: "no-store",
       signal: opts.signal,

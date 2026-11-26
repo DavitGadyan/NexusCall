@@ -8,6 +8,7 @@ export const workspaceNav: NavSection[] = [
     { label: "Leads", href: "/app/crm/leads", permission: "leads:read" },
     { label: "Contacts", href: "/app/crm/contacts", permission: "leads:read" },
     { label: "Imports", href: "/app/crm/imports", permission: "leads:create" },
+    { label: "Segments", href: "/app/crm/segments", permission: "campaigns:read" },
     { label: "Call campaigns", href: "/app/campaigns/calls", permission: "campaigns:read" },
     { label: "Email campaigns", href: "/app/campaigns/email", permission: "emails:campaigns:manage" },
   ]},
@@ -21,6 +22,7 @@ export const workspaceNav: NavSection[] = [
   ]},
   { label: "Configure", items: [
     { label: "AI agents", href: "/app/agents", permission: "ai:agents:read" },
+    { label: "Evaluations", href: "/app/agents/evals", permission: "ai:agents:read" },
     { label: "Knowledge", href: "/app/knowledge", permission: "ai:agents:read" },
     { label: "Analytics", href: "/app/analytics", permission: "analytics:read" },
     { label: "Integrations", href: "/app/integrations", permission: "integrations:read" },

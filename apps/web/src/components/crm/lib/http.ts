@@ -3,11 +3,10 @@
  * Module helpers shared by the CRM, campaign and AI pages that `src/lib/client/api.ts` does not cover yet:
  * multipart uploads (CSV imports, knowledge documents), presigned download links and job polling delays.
  *
- * `uploadFile` mirrors `api()`: same BFF prefix, CSRF header, Idempotency-Key, problem+json parsing and
- * step-up / session-expired handling. It should move into `api.ts` (FormData bodies) — see the module report.
+ * `uploadFile` sends multipart through the shared `api()` wrapper (CSRF, Idempotency-Key, problem+json,
+ * step-up and session handling all come from there).
  */
-import { ApiError, readCsrfToken, signInUrl, STEP_UP_EVENT } from "@/lib/client/api";
-import { toProblem } from "@/lib/problem";
+import { api } from "@/lib/client/api";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -36,37 +35,10 @@ export async function uploadFile<T>(
   file: File,
   opts: { fields?: Record<string, string>; idempotencyKey: string; signal?: AbortSignal },
 ): Promise<T> {
-  if (!path.startsWith("/api/v1/")) throw new Error(`API paths must start with /api/v1/ (got ${path})`);
   const form = new FormData();
   form.append("file", file, file.name);
   for (const [k, v] of Object.entries(opts.fields ?? {})) form.append(k, v);
-  const headers: Record<string, string> = { Accept: "application/json", "Idempotency-Key": opts.idempotencyKey };
-  const token = readCsrfToken();
-  if (token) headers["X-CSRF-Token"] = token;
-  let resp: Response;
-  try {
-    // No Content-Type header: the browser sets multipart/form-data with the boundary.
-    resp = await fetch(`/api/bff${path}`, { method: "POST", headers, body: form, credentials: "same-origin", cache: "no-store", signal: opts.signal });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new ApiError(toProblem(0, { code: "network_error", detail: "Network error. Check your connection and try again." }));
-  }
-  const text = await resp.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
-  if (resp.ok) return body as T;
-  const error = new ApiError(toProblem(resp.status, body));
-  if (typeof window !== "undefined") {
-    if (error.isStepUp) window.dispatchEvent(new CustomEvent(STEP_UP_EVENT, { detail: { message: error.problem.detail } }));
-    else if (resp.status === 401) window.location.assign(signInUrl());
-  }
-  throw error;
+  return api<T>(path, { method: "POST", body: form, idempotencyKey: opts.idempotencyKey, signal: opts.signal });
 }
 
 /**

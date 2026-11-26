@@ -28,6 +28,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
+/** File uploads: a 10 MB file plus multipart framing. Matches Traefik's body-limit-uploads (11 MiB). */
+const MAX_MULTIPART_BYTES = 11 * 1024 * 1024;
 const TIMEOUT_MS = 30_000;
 const MAX_QUERY = 4096;
 
@@ -74,10 +76,13 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   let body: ArrayBuffer | undefined;
   if (req.method !== "GET" && req.method !== "HEAD") {
+    const multipart = (req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data");
+    const limit = multipart ? MAX_MULTIPART_BYTES : MAX_BODY_BYTES;
+    const tooLarge = () => problemResponse(413, "payload_too_large", "Request body exceeds 10 MB.");
     const declared = Number(req.headers.get("content-length") ?? "0");
-    if (declared > MAX_BODY_BYTES) return problemResponse(413, "payload_too_large", "Request body exceeds 10 MB.");
+    if (declared > limit) return tooLarge();
     body = await req.arrayBuffer();
-    if (body.byteLength > MAX_BODY_BYTES) return problemResponse(413, "payload_too_large", "Request body exceeds 10 MB.");
+    if (body.byteLength > limit) return tooLarge();
   }
 
   const stream = req.method === "GET" && isEventStream(req.headers);
