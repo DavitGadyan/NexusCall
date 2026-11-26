@@ -61,6 +61,8 @@ The app calls the real providers. Keys are never put in `.env`. They are stored 
 
 Example: `scripts/vault_put_platform_secret.sh voice-service/deepgram api_key`. Run it once for each field.
 
+SES also needs a verified sender: set `NOTIFICATION_FROM_ADDRESS` in `.env` to an address or domain verified in SES. While the SES account is in the sandbox, it can send only to verified addresses.
+
 A tenant can also use its own Twilio, SES or calendar account: tenant admin → **Provider connections**. A tenant key takes priority over the platform default.
 
 **Webhooks:** Twilio and SES must reach the app from the internet. On a laptop, run `ngrok http 47000`, set `NEXUS_PUBLIC_BASE_URL` in `.env` to the ngrok HTTPS URL, then run `make up-all` again. Without this, outbound actions still work, but call status, inbound calls and inbound email do not arrive.
