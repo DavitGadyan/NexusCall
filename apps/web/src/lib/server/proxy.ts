@@ -127,3 +127,27 @@ export function mapUnauthorized(body: ProblemBody | null): { body: Record<string
 export function isEventStream(headers: Headers): boolean {
   return (headers.get("accept") ?? "").includes("text/event-stream");
 }
+
+/**
+ * Upstream `Set-Cookie` headers are dropped, with one exception: the OAuth browser-binding cookie that
+ * integration-service sets on `GET /api/v1/integrations/oauth/{provider}/start`. It is forwarded only
+ * when it is exactly that cookie, HttpOnly, SameSite=Lax and scoped to `Path=/oauth/callback`, so a
+ * service can never plant other cookies (session, CSRF) on the web origin.
+ */
+const OAUTH_START_PATH = /^\/api\/v1\/integrations\/oauth\/[a-z0-9_-]{1,40}\/start$/;
+const OAUTH_BIND_COOKIE = "nx_oauth_bind";
+
+export function forwardableSetCookies(upstreamPath: string, upstream: Headers): string[] {
+  if (!OAUTH_START_PATH.test(upstreamPath)) return [];
+  const all = typeof upstream.getSetCookie === "function" ? upstream.getSetCookie() : [];
+  return all.filter((raw) => {
+    const [pair = "", ...attrs] = raw.split(";").map((p) => p.trim());
+    const eq = pair.indexOf("=");
+    if (eq <= 0 || pair.slice(0, eq) !== OAUTH_BIND_COOKIE) return false;
+    const value = pair.slice(eq + 1);
+    if (!/^[A-Za-z0-9_-]{20,200}$/.test(value)) return false;
+    const lower = attrs.map((a) => a.toLowerCase());
+    if (lower.some((a) => a.startsWith("domain="))) return false;
+    return lower.includes("httponly") && lower.includes("path=/oauth/callback") && lower.includes("samesite=lax");
+  });
+}

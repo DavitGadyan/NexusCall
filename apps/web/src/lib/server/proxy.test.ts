@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientIpFrom,
   forwardRequestHeaders,
+  forwardableSetCookies,
   forwardResponseHeaders,
   isAnonymousPath,
   mapUnauthorized,
@@ -171,5 +172,37 @@ describe("401 mapping", () => {
     const { body } = mapUnauthorized({ code: "unauthorized", detail: "Token expired" });
     expect(body.code).toBe("session_expired");
     expect(body.detail).not.toContain("Token");
+  });
+});
+
+describe("forwardableSetCookies", () => {
+  const start = "/api/v1/integrations/oauth/google/start";
+  const good = "nx_oauth_bind=Abc123_def456-ghi789jklmno; HttpOnly; Max-Age=600; Path=/oauth/callback; SameSite=lax; Secure";
+  const headersWith = (...cookies: string[]) => {
+    const h = new Headers();
+    for (const c of cookies) h.append("set-cookie", c);
+    return h;
+  };
+
+  it("forwards only the OAuth binding cookie from the OAuth start endpoint", () => {
+    expect(forwardableSetCookies(start, headersWith(good))).toEqual([good]);
+  });
+  it("drops every cookie on other paths", () => {
+    expect(forwardableSetCookies("/api/v1/integrations/connections", headersWith(good))).toEqual([]);
+  });
+  it("drops other cookie names, even from the OAuth start endpoint", () => {
+    const planted = "__Host-nx_sid=evil; HttpOnly; Path=/; SameSite=lax; Secure";
+    expect(forwardableSetCookies(start, headersWith(planted, good))).toEqual([good]);
+  });
+  it("drops the binding cookie when it is widened or weakened", () => {
+    for (const bad of [
+      good.replace("Path=/oauth/callback", "Path=/"),
+      good.replace("HttpOnly; ", ""),
+      good.replace("SameSite=lax", "SameSite=None"),
+      `${good}; Domain=example.com`,
+      "nx_oauth_bind=short; HttpOnly; Path=/oauth/callback; SameSite=lax",
+    ]) {
+      expect(forwardableSetCookies(start, headersWith(bad))).toEqual([]);
+    }
   });
 });

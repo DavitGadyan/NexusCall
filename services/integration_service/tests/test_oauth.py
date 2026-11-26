@@ -79,7 +79,7 @@ def test_google_flow_stores_refresh_token_in_vault_only(harness, tenant, caplog)
     r = _callback(harness, {"code": "auth-code-1", "state": query["state"]}, binding)
     assert r.status_code == 303, r.text
     target = urlsplit(r.headers["location"])
-    assert f"{target.scheme}://{target.netloc}{target.path}" == f"{PUBLIC}/integrations"
+    assert f"{target.scheme}://{target.netloc}{target.path}" == f"{PUBLIC}/app/integrations"
     result = parse_qs(target.query)
     assert result["oauth"] == ["active"] and result["provider"] == ["google_calendar"]
     # PKCE: the verifier sent at exchange time matches the challenge sent to the browser.

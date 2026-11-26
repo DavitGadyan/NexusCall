@@ -31,7 +31,7 @@ class Settings(ServiceSettings):
     # OAuth (authorization code). The redirect URI must be registered with each provider.
     oauth_redirect_path: str = "/oauth/callback"
     oauth_state_ttl_seconds: int = 600
-    oauth_success_path: str = "/integrations"
+    oauth_success_path: str = "/app/integrations"  # web page that reads the oauth/provider/connection query
     # Browsers reach the fake-providers simulator through this URL in development.
     fake_providers_public_url: str | None = None
 

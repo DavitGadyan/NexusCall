@@ -12,6 +12,7 @@ import { refresher } from "@/lib/server/oidc";
 import {
   clientIpFrom,
   forwardRequestHeaders,
+  forwardableSetCookies,
   forwardResponseHeaders,
   isAnonymousPath,
   isEventStream,
@@ -131,6 +132,7 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   const out = forwardResponseHeaders(upstream.headers, { stream });
   if (!out.has("x-request-id")) out.set("x-request-id", requestId);
+  for (const cookie of forwardableSetCookies(upstreamPath, upstream.headers)) out.append("set-cookie", cookie);
   return new Response(upstream.status === 204 || upstream.status === 304 ? null : upstream.body, {
     status: upstream.status,
     headers: out,
