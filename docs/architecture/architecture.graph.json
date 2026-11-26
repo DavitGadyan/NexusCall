@@ -3,9 +3,9 @@
   "meta": {
     "name": "NexusCall",
     "tagline": "Multi-tenant AI call center & agency platform",
-    "version": "0.2.0-phase1",
-    "updated": "2026-11-25",
-    "status": "foundation-built",
+    "version": "0.9.0-phase8",
+    "updated": "2026-11-26",
+    "status": "services-built-ui-in-progress",
     "description": "Inbound and outbound AI voice calls, CRM, campaigns, email campaigns, AI-drafted email replies with human approval, and platform/tenant admin consoles. Built on 16 FastAPI microservices, PostgreSQL RLS, RabbitMQ/Celery, Vault and an AI Gateway security boundary."
   },
   "layers": [
@@ -134,7 +134,8 @@
         "strict CSP",
         "permission-aware navigation (UI only, backend authoritative)"
       ],
-      "phase": 1
+      "phase": 1,
+      "status": "built"
     },
     {
       "id": "api_gateway",
@@ -153,7 +154,8 @@
         "separate webhook router"
       ],
       "adr": "0010",
-      "phase": 1
+      "phase": 1,
+      "status": "built-not-deployed"
     },
     {
       "id": "tenant_service",
@@ -183,7 +185,9 @@
         "step-up MFA for admin changes"
       ],
       "scaling": "Stateless, with a Redis authz cache; scales horizontally.",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 20
     },
     {
       "id": "crm_service",
@@ -209,7 +213,9 @@
         "RLS on every table",
         "export permission + audit"
       ],
-      "phase": 3
+      "phase": 3,
+      "status": "built",
+      "tests": 56
     },
     {
       "id": "campaign_service",
@@ -228,7 +234,9 @@
         "schedules",
         "kill_switches"
       ],
-      "phase": 3
+      "phase": 3,
+      "status": "built",
+      "tests": 83
     },
     {
       "id": "booking_service",
@@ -247,7 +255,9 @@
         "appointments",
         "calendar_sync_state"
       ],
-      "phase": 4
+      "phase": 4,
+      "status": "built",
+      "tests": 45
     },
     {
       "id": "call_service",
@@ -259,7 +269,7 @@
         "PostgreSQL",
         "Twilio"
       ],
-      "summary": "Call state machine, attempts, Twilio webhooks, inbound number \u2192 tenant mapping, reconciliation.",
+      "summary": "Call state machine, attempts, Twilio webhooks, inbound number → tenant mapping, reconciliation.",
       "why": "One owner for call state prevents duplicate dials. It reconciles with Twilio before any retry.",
       "owns": [
         "calls",
@@ -274,7 +284,9 @@
         "pre-dial DNC/consent/window gate"
       ],
       "scaling": "Scale on webhook rate; Redis concurrency counters per tenant.",
-      "phase": 4
+      "phase": 4,
+      "status": "built",
+      "tests": 65
     },
     {
       "id": "voice_service",
@@ -287,7 +299,7 @@
         "ElevenLabs",
         "Twilio Media Streams"
       ],
-      "summary": "Live call audio loop: Twilio audio \u2192 STT \u2192 AI Gateway \u2192 TTS \u2192 Twilio. Handles barge-in, timeouts and human handoff.",
+      "summary": "Live call audio loop: Twilio audio → STT → AI Gateway → TTS → Twilio. Handles barge-in, timeouts and human handoff.",
       "why": "Long-lived WebSockets have a different scaling and latency profile from REST services.",
       "owns": [
         "voice_sessions",
@@ -300,7 +312,9 @@
         "tools limited to the current call's contact"
       ],
       "scaling": "Scale on concurrent sessions; target < 1.2 s turn latency.",
-      "phase": 4
+      "phase": 4,
+      "status": "built",
+      "tests": 58
     },
     {
       "id": "email_service",
@@ -328,7 +342,9 @@
         "header-injection guard",
         "RFC 8058 unsubscribe"
       ],
-      "phase": 5
+      "phase": 5,
+      "status": "built",
+      "tests": 173
     },
     {
       "id": "email_inbox_service",
@@ -358,7 +374,9 @@
         "approval re-checks permission",
         "frozen draft version is what gets sent"
       ],
-      "phase": 6
+      "phase": 6,
+      "status": "built",
+      "tests": 63
     },
     {
       "id": "ai_agent_service",
@@ -383,7 +401,9 @@
         "tenant filter applied inside the vector query",
         "trust-labelled context blocks"
       ],
-      "phase": 3
+      "phase": 3,
+      "status": "built",
+      "tests": 102
     },
     {
       "id": "ai_gateway",
@@ -405,12 +425,15 @@
         "ai_security_events"
       ],
       "security": [
+        "OWASP LLM Top 10 controls with 71 tests (docs/security/OWASP_LLM_TOP10_ASSESSMENT.md)",
         "no prompt storage by default",
         "per-tenant budgets",
         "provider kill switch"
       ],
       "adr": "0012",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 71
     },
     {
       "id": "mcp_registry",
@@ -422,7 +445,7 @@
         "PostgreSQL",
         "JSON Schema"
       ],
-      "summary": "Approved MCP servers and tools, versioned schemas, risk classes 0\u20134, agent-tool grants, policy proposals.",
+      "summary": "Approved MCP servers and tools, versioned schemas, risk classes 0–4, agent-tool grants, policy proposals.",
       "why": "Models can only use tools a human registered and granted. They can never register their own.",
       "owns": [
         "mcp_servers",
@@ -432,7 +455,9 @@
         "policy_proposals"
       ],
       "adr": "0012",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 37
     },
     {
       "id": "tool_execution",
@@ -457,7 +482,9 @@
         "Class-4 never exposed"
       ],
       "adr": "0012",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 59
     },
     {
       "id": "integration_service",
@@ -482,7 +509,9 @@
         "HMAC-signed webhooks",
         "SSRF-safe destinations"
       ],
-      "phase": 7
+      "phase": 7,
+      "status": "built",
+      "tests": 68
     },
     {
       "id": "notification_service",
@@ -495,7 +524,9 @@
         "Redis pub/sub"
       ],
       "summary": "In-app notifications (SSE), operational emails, preferences.",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 49
     },
     {
       "id": "analytics_service",
@@ -508,7 +539,9 @@
       ],
       "summary": "Event-fed dashboards for calls, campaigns, email, AI drafts, bookings and costs. Exports are audited.",
       "why": "No cross-service joins. Read models are fed only by events.",
-      "phase": 7
+      "phase": 7,
+      "status": "built",
+      "tests": 18
     },
     {
       "id": "audit_service",
@@ -521,7 +554,9 @@
       ],
       "summary": "Tamper-evident log of every security and business action.",
       "why": "Gives accountability for approvals, exports, admin changes and break-glass access. The app role can only INSERT and SELECT.",
-      "phase": 2
+      "phase": 2,
+      "status": "built",
+      "tests": 21
     },
     {
       "id": "workers",
@@ -532,7 +567,7 @@
         "Celery",
         "RabbitMQ"
       ],
-      "summary": "One container per workload: calls, voice-post, email-send, email-inbound, ai-drafts, integrations, imports, analytics, notifications. Plus outbox relays and a single beat scheduler.",
+      "summary": "One container per workload, 12 in total: imports, campaign, calls, voice-post, email-send, email-transactional, email-inbound, ai-drafts, email-approved, ai-agent, integrations, analytics. Transactional email has its own queue so a campaign cannot delay replies. Outbox relays and periodic jobs run in-process under Redis locks.",
       "why": "Bulkheads mean a bulk email blast can't starve latency-sensitive call dispatch.",
       "security": [
         "tasks carry IDs only, never secrets",
@@ -540,7 +575,8 @@
         "DLQ + audited replay"
       ],
       "adr": "0011",
-      "phase": 1
+      "phase": 1,
+      "status": "built"
     },
     {
       "id": "postgres",
@@ -548,7 +584,8 @@
       "layer": "data",
       "kind": "datastore",
       "summary": "One database per service. RLS is enabled and forced on every tenant table, and the runtime role is never owner or BYPASSRLS.",
-      "adr": "0007"
+      "adr": "0007",
+      "status": "built-not-deployed"
     },
     {
       "id": "rabbitmq",
@@ -556,22 +593,25 @@
       "layer": "data",
       "kind": "broker",
       "summary": "Quorum queues, DLX per queue, publisher confirms, per-service broker users.",
-      "adr": "0011"
+      "adr": "0011",
+      "status": "built-not-deployed"
     },
     {
       "id": "redis",
       "label": "Redis",
       "layer": "data",
       "kind": "cache",
-      "summary": "Authz cache, rate limits, concurrency counters, BFF sessions, beat lock. Never the source of truth."
+      "summary": "Authz cache, rate limits, concurrency counters, BFF sessions, beat lock. Never the source of truth.",
+      "status": "built-not-deployed"
     },
     {
       "id": "minio",
-      "label": "Object Storage (S3-compatible; SeaweedFS locally)",
+      "label": "Object Storage (S3-compatible; SeaweedFS)",
       "layer": "data",
       "kind": "datastore",
       "summary": "Recordings, transcripts, attachments, imports, exports. Private buckets, short-lived signed URLs.",
-      "adr": "0013"
+      "adr": "0013",
+      "status": "built-not-deployed"
     },
     {
       "id": "vault",
@@ -579,7 +619,8 @@
       "layer": "security",
       "kind": "secrets",
       "summary": "All provider and platform secrets. Per-service policies scoped to exact paths. Dynamic DB credentials in production.",
-      "adr": "0009"
+      "adr": "0009",
+      "status": "built-not-deployed"
     },
     {
       "id": "keycloak",
@@ -587,14 +628,16 @@
       "layer": "security",
       "kind": "idp",
       "summary": "Login, MFA, step-up, session revocation, service-account client credentials.",
-      "adr": "0006"
+      "adr": "0006",
+      "status": "built-not-deployed"
     },
     {
       "id": "otel",
-      "label": "OTel Collector \u2192 Prometheus / Grafana / Loki / Tempo",
+      "label": "OTel Collector → Prometheus / Grafana / Loki / Tempo",
       "layer": "observability",
       "kind": "observability",
-      "summary": "Traces propagated over HTTP and AMQP; RED metrics; business KPIs; redacted JSON logs."
+      "summary": "Traces propagated over HTTP and AMQP; RED metrics; business KPIs; redacted JSON logs.",
+      "status": "built-not-deployed"
     },
     {
       "id": "twilio",
@@ -637,6 +680,30 @@
       "layer": "external",
       "kind": "provider",
       "summary": "Calendar sync for bookings."
+    },
+    {
+      "id": "hubspot",
+      "label": "HubSpot",
+      "layer": "external",
+      "kind": "provider",
+      "summary": "CRM sync via OAuth; inbound webhooks verified with the v3 signature and a replay window.",
+      "status": "built"
+    },
+    {
+      "id": "voyage",
+      "label": "Voyage AI",
+      "layer": "external",
+      "kind": "provider",
+      "summary": "Embeddings for knowledge retrieval, called only through the AI Gateway.",
+      "status": "built"
+    },
+    {
+      "id": "clamav",
+      "label": "ClamAV",
+      "layer": "security",
+      "kind": "secrets",
+      "summary": "Malware scanning of inbound email attachments (clamd INSTREAM); infected files are quarantined.",
+      "status": "built-not-deployed"
     }
   ],
   "edges": [
@@ -1010,7 +1077,7 @@
       "to": "analytics_service",
       "kind": "async",
       "protocol": "AMQP",
-      "label": "domain events \u2192 read models"
+      "label": "domain events → read models"
     },
     {
       "id": "e49",
@@ -1067,6 +1134,38 @@
       "kind": "data",
       "protocol": "OTLP",
       "label": "traces/metrics/logs (all components)"
+    },
+    {
+      "id": "e56",
+      "from": "integration_service",
+      "to": "hubspot",
+      "kind": "sync",
+      "protocol": "HTTPS/OAuth",
+      "label": "CRM connection, token refresh"
+    },
+    {
+      "id": "e57",
+      "from": "hubspot",
+      "to": "integration_service",
+      "kind": "async",
+      "protocol": "HTTPS webhook",
+      "label": "Signed CRM events"
+    },
+    {
+      "id": "e58",
+      "from": "ai_gateway",
+      "to": "voyage",
+      "kind": "sync",
+      "protocol": "HTTPS",
+      "label": "Embeddings"
+    },
+    {
+      "id": "e59",
+      "from": "email_inbox_service",
+      "to": "clamav",
+      "kind": "sync",
+      "protocol": "TCP (INSTREAM)",
+      "label": "Attachment scan"
     }
   ],
   "flows": [
@@ -1112,7 +1211,7 @@
           "to": "web",
           "action": "Selects tenant",
           "detail": "Every later request carries X-Tenant-ID, which only selects a tenant. Membership is re-checked server-side.",
-          "security": "Tenant header spoofing \u2192 403"
+          "security": "Tenant header spoofing → 403"
         }
       ]
     },
@@ -1180,7 +1279,7 @@
     },
     {
       "id": "outbound_call",
-      "title": "Outbound AI call campaign \u2192 booking",
+      "title": "Outbound AI call campaign → booking",
       "actor": "tenant_user",
       "summary": "A lead goes through campaign, AI call and outcome, ending in a booked appointment.",
       "steps": [
@@ -1230,7 +1329,7 @@
           "from": "twilio",
           "to": "call_service",
           "action": "Status webhooks",
-          "detail": "Signature verified and deduplicated: ringing \u2192 connected."
+          "detail": "Signature verified and deduplicated: ringing → connected."
         },
         {
           "n": 8,
@@ -1243,7 +1342,7 @@
           "n": 9,
           "from": "voice_service",
           "to": "deepgram",
-          "action": "Caller speech \u2192 text"
+          "action": "Caller speech → text"
         },
         {
           "n": 10,
@@ -1270,7 +1369,7 @@
           "n": 13,
           "from": "voice_service",
           "to": "elevenlabs",
-          "action": "Reply text \u2192 speech \u2192 caller"
+          "action": "Reply text → speech → caller"
         },
         {
           "n": 14,
@@ -1288,7 +1387,7 @@
           "n": 16,
           "from": "rabbitmq",
           "to": "analytics_service",
-          "action": "call.completed \u2192 dashboards"
+          "action": "call.completed → dashboards"
         }
       ]
     },
@@ -1314,7 +1413,7 @@
           "n": 3,
           "from": "call_service",
           "to": "postgres",
-          "action": "Look up inbound_numbers \u2192 tenant + agent",
+          "action": "Look up inbound_numbers → tenant + agent",
           "security": "Tenant comes from trusted config, never from caller data"
         },
         {
@@ -1327,7 +1426,7 @@
           "n": 5,
           "from": "twilio",
           "to": "voice_service",
-          "action": "Audio stream; same STT \u2192 LLM \u2192 TTS loop"
+          "action": "Audio stream; same STT → LLM → TTS loop"
         },
         {
           "n": 6,
@@ -1399,13 +1498,13 @@
           "n": 8,
           "from": "email_service",
           "to": "rabbitmq",
-          "action": "email.unsubscribed \u2192 CRM suppression across channels"
+          "action": "email.unsubscribed → CRM suppression across channels"
         }
       ]
     },
     {
       "id": "ai_email_reply",
-      "title": "Inbound email \u2192 AI draft \u2192 human approval \u2192 send",
+      "title": "Inbound email → AI draft → human approval → send",
       "actor": "tenant_user",
       "summary": "The core human-in-the-loop flow: AI drafts, a person approves, and exactly the approved version is sent.",
       "steps": [
@@ -1426,7 +1525,7 @@
           "n": 3,
           "from": "email_inbox_service",
           "to": "postgres",
-          "action": "Resolve mailbox \u2192 tenant; thread by Message-ID/References",
+          "action": "Resolve mailbox → tenant; thread by Message-ID/References",
           "security": "Tenant from trusted mailbox config"
         },
         {
@@ -1454,7 +1553,7 @@
           "n": 7,
           "from": "email_inbox_service",
           "to": "notification_service",
-          "action": "Draft ready \u2192 reviewer notified"
+          "action": "Draft ready → reviewer notified"
         },
         {
           "n": 8,
@@ -1500,7 +1599,7 @@
           "n": 1,
           "from": "tenant_admin",
           "to": "web",
-          "action": "Integrations \u2192 Add Twilio connection",
+          "action": "Integrations → Add Twilio connection",
           "security": "integrations:manage + step-up MFA"
         },
         {
@@ -1572,7 +1671,7 @@
           "n": 4,
           "from": "tool_execution",
           "to": "mcp_registry",
-          "action": "Is booking.cancel granted to this agent? Risk class 3 \u2192 approval required",
+          "action": "Is booking.cancel granted to this agent? Risk class 3 → approval required",
           "security": "Denied: not granted to the voice agent"
         },
         {
@@ -1612,7 +1711,7 @@
           "n": 3,
           "from": "web",
           "to": "tenant_service",
-          "action": "Create support_grant (TTL \u2264 4h), second approver if critical"
+          "action": "Create support_grant (TTL ≤ 4h), second approver if critical"
         },
         {
           "n": 4,

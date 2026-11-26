@@ -3,42 +3,271 @@
   "$id": "https://nexuscall.dev/schemas/architecture.graph.json",
   "title": "NexusCall architecture graph",
   "type": "object",
-  "required": ["meta", "layers", "nodes", "edges", "flows", "mindmap"],
+  "required": [
+    "meta",
+    "layers",
+    "nodes",
+    "edges",
+    "flows",
+    "mindmap"
+  ],
   "$defs": {
-    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
     "mindNode": {
       "type": "object",
-      "required": ["id", "label"],
+      "required": [
+        "id",
+        "label"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "label": { "type": "string" },
-        "nodeRefs": { "type": "array", "items": { "$ref": "#/$defs/id" } },
-        "flowRefs": { "type": "array", "items": { "$ref": "#/$defs/id" } },
-        "children": { "type": "array", "items": { "$ref": "#/$defs/mindNode" } }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string"
+        },
+        "nodeRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "flowRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mindNode"
+          }
+        }
       }
     }
   },
   "properties": {
-    "meta": { "type": "object", "required": ["name", "version", "updated"] },
-    "layers": { "type": "array", "items": { "type": "object", "required": ["id", "label", "order"],
-      "properties": { "id": { "$ref": "#/$defs/id" }, "label": { "type": "string" }, "order": { "type": "integer" }, "color": { "type": "string" } } } },
-    "nodes": { "type": "array", "items": { "type": "object", "required": ["id", "label", "layer", "kind", "summary"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" }, "label": { "type": "string" }, "layer": { "$ref": "#/$defs/id" },
-        "kind": { "enum": ["actor", "frontend", "gateway", "service", "worker", "datastore", "broker", "cache", "secrets", "idp", "observability", "provider"] },
-        "summary": { "type": "string" }, "why": { "type": "string" },
-        "tech": { "type": "array", "items": { "type": "string" } },
-        "owns": { "type": "array", "items": { "type": "string" } },
-        "security": { "type": "array", "items": { "type": "string" } },
-        "scaling": { "type": "string" }, "adr": { "type": "string" }, "phase": { "type": "integer" } } } },
-    "edges": { "type": "array", "items": { "type": "object", "required": ["id", "from", "to", "kind"],
-      "properties": { "id": { "type": "string" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" },
-        "kind": { "enum": ["sync", "async", "webhook", "stream", "data"] }, "protocol": { "type": "string" }, "label": { "type": "string" } } } },
-    "flows": { "type": "array", "items": { "type": "object", "required": ["id", "title", "actor", "steps"],
-      "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string" }, "actor": { "$ref": "#/$defs/id" }, "summary": { "type": "string" },
-        "steps": { "type": "array", "items": { "type": "object", "required": ["n", "from", "to", "action"],
-          "properties": { "n": { "type": "integer" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" },
-            "action": { "type": "string" }, "detail": { "type": "string" }, "security": { "type": "string" } } } } } } },
-    "mindmap": { "$ref": "#/$defs/mindNode" }
+    "meta": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "updated"
+      ]
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "order"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "label": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "color": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "layer",
+          "kind",
+          "summary"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "label": {
+            "type": "string"
+          },
+          "layer": {
+            "$ref": "#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "actor",
+              "frontend",
+              "gateway",
+              "service",
+              "worker",
+              "datastore",
+              "broker",
+              "cache",
+              "secrets",
+              "idp",
+              "observability",
+              "provider"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          },
+          "tech": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "security": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scaling": {
+            "type": "string"
+          },
+          "adr": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "designed",
+              "built",
+              "built-not-deployed"
+            ],
+            "description": "Implementation state (portfolio badge)."
+          },
+          "tests": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Automated tests collected for this component."
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/id"
+          },
+          "to": {
+            "$ref": "#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "sync",
+              "async",
+              "webhook",
+              "stream",
+              "data"
+            ]
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "actor",
+          "steps"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/$defs/id"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "n",
+                "from",
+                "to",
+                "action"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer"
+                },
+                "from": {
+                  "$ref": "#/$defs/id"
+                },
+                "to": {
+                  "$ref": "#/$defs/id"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "security": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "mindmap": {
+      "$ref": "#/$defs/mindNode"
+    }
   }
 }
