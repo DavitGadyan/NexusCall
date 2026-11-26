@@ -1,0 +1,8 @@
+apiVersion: v2
+name: platform-data
+description: >-
+  NexusCall data plane custom resources: the CloudNativePG cluster (pgvector, WAL archiving and PITR to
+  S3-compatible storage), the database/role bootstrap Job, the RabbitMQ quorum cluster and its topology
+  (vhost, exchanges, dead-letter queues, policy, operator users). Installed by infra/terraform/addons.
+type: application
+version: 0.1.0

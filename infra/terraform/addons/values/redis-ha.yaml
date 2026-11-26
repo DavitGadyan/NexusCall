@@ -1,0 +1,38 @@
+# Redis is cache, rate limits, locks and session store only: never the source of truth (build.md §6).
+image:
+  repository: redis
+  tag: 7.4.1-alpine
+replicas: 3
+auth: true
+existingSecret: redis-auth
+authKey: password
+sentinel:
+  auth: true
+  existingSecret: redis-auth
+  authKey: password
+haproxy:
+  enabled: true
+  replicas: 2
+  metrics:
+    enabled: true
+redis:
+  config:
+    maxmemory: 1gb
+    maxmemory-policy: volatile-lru
+    appendonly: "no"
+    save: ""
+  resources:
+    requests: { cpu: 100m, memory: 1280Mi }
+    limits: { memory: 1536Mi }
+persistentVolume:
+  enabled: false
+exporter:
+  enabled: true
+podDisruptionBudget:
+  maxUnavailable: 1
+containerSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }
+  seccompProfile: { type: RuntimeDefault }

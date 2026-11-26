@@ -1,0 +1,119 @@
+{{- if .Values.migrations.enabled }}
+{{- /*
+Pre-install / pre-upgrade migration Job (build.md §9.2: one controlled job, never from replicas).
+The tools image runs scripts/migrate_all.py once per database as `<db>_owner`; the owner passwords come
+from Vault static database roles (`database/static-creds/<db>-owner`), rendered by a pre-populate-only
+Vault agent (no sidecar, so the Job completes). The ServiceAccount and NetworkPolicy are hooks too, so
+they exist before the Job on the very first install.
+*/ -}}
+{{- $root := . -}}
+{{- $g := .Values.global -}}
+{{- $m := .Values.migrations -}}
+{{- $lines := list -}}
+{{- range $name, $s := .Values.services }}
+{{- if $s.enabled }}
+{{- $lines = append $lines (printf "{{- with secret \"%s/static-creds/%s-owner\" }}" $g.database.vaultMount $s.database) -}}
+{{- $lines = append $lines (printf "export MIGRATION_DATABASE_URL_%s='postgresql+asyncpg://{{ .Data.username }}:{{ .Data.password }}@%s:%v/%s?ssl=%s'" (upper $s.database) $g.database.host $g.database.port $s.database $g.database.ssl) -}}
+{{- $lines = append $lines "{{- end }}" -}}
+{{- end }}
+{{- end }}
+{{- $only := list }}
+{{- range $name, $s := .Values.services }}{{- if $s.enabled }}{{- $only = append $only $s.package }}{{- end }}{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexus-migrations
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+automountServiceAccountToken: false
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nexus-migrations
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: migrations
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        {{- include "nexuscall.endpointPeer" (dict "ep" $g.endpoints.dns) | nindent 8 }}
+      ports:
+        {{- toYaml $g.endpoints.dns.ports | nindent 8 }}
+    {{- range $key := list "postgres" "vault" }}
+    {{- $ep := get $g.endpoints $key }}
+    - to:
+        {{- include "nexuscall.endpointPeer" (dict "ep" $ep) | nindent 8 }}
+      ports:
+        {{- range $ep.ports }}
+        - { port: {{ .port }}, protocol: TCP }
+        {{- end }}
+    {{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nexus-migrations
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+    app.kubernetes.io/component: migrations
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    # Keep a failed Job for inspection; it is replaced on the next upgrade.
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ $m.backoffLimit }}
+  activeDeadlineSeconds: {{ $m.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ $m.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nexuscall
+        app.kubernetes.io/component: migrations
+      annotations:
+        {{- include "nexuscall.vaultAnnotations" (dict "root" $root "role" $m.vaultRole "template" (join "\n" $lines) "prepopulateOnly" true) | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: nexus-migrations
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        {{- include "nexuscall.podSecurityContext" $root | nindent 8 }}
+      {{- with $g.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "nexuscall.image" (dict "root" $root "image" $g.image.toolsImage "tag" "" "digest" "") }}
+          imagePullPolicy: {{ $g.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - {{ printf ". /vault/secrets/env && exec python scripts/migrate_all.py %s" (join " " $only) | quote }}
+          env:
+            - { name: ENV, value: {{ $g.env | quote }} }
+          resources:
+            {{- toYaml $m.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexuscall.containerSecurityContext" $root | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
+        {{- include "nexuscall.vaultTokenVolume" $root | nindent 8 }}
+{{- end }}

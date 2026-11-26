@@ -1,0 +1,170 @@
+{{- if .Values.ingress.enabled }}
+{{- /*
+Traefik IngressRoutes generated from scripts/gen_traefik.py (values `routes`):
+  public   entrypoint (TLS): browsers, API clients, Twilio/SNS webhooks, Twilio Media Streams (WebSocket)
+  internal entrypoint (plain HTTP, ClusterIP only): the web BFF forwards /api/v1/* here
+Route kinds: standard (buffered, 10 MB), upload (11 MB), webhook (own rate limit, 1 MB),
+stream (SSE, unbuffered) and websocket (unbuffered). Authorization is never delegated to Traefik.
+*/ -}}
+{{- $root := . -}}
+{{- $in := .Values.ingress -}}
+{{- $chains := dict
+  "standard" (list "secure-headers" "rate-limit" "body-limit")
+  "upload" (list "secure-headers" "rate-limit" "body-limit-uploads")
+  "webhook" (list "secure-headers" "rate-limit-webhooks" "body-limit-webhooks")
+  "stream" (list "secure-headers" "rate-limit")
+  "websocket" (list "secure-headers" "rate-limit") -}}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: secure-headers
+  namespace: {{ .Release.Namespace }}
+spec:
+  headers:
+    frameDeny: true
+    contentTypeNosniff: true
+    browserXssFilter: false
+    referrerPolicy: strict-origin-when-cross-origin
+    permissionsPolicy: "camera=(), geolocation=(), microphone=()"
+    stsSeconds: {{ $in.hsts.maxAge }}
+    stsIncludeSubdomains: {{ $in.hsts.includeSubdomains }}
+    forceSTSHeader: true
+    accessControlAllowOriginList: [{{ .Values.global.publicBaseUrl | quote }}]
+    accessControlAllowMethods: [GET, POST, PUT, PATCH, DELETE]
+    accessControlAllowHeaders: [Authorization, Content-Type, Idempotency-Key, X-Tenant-ID, X-CSRF-Token, X-Request-ID]
+    accessControlMaxAge: 600
+    customResponseHeaders:
+      Server: ""
+      X-Powered-By: ""
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: {{ .Release.Namespace }}
+spec:
+  rateLimit:
+    average: {{ $in.rateLimit.average }}
+    burst: {{ $in.rateLimit.burst }}
+    period: {{ $in.rateLimit.period }}
+    sourceCriterion:
+      ipStrategy:
+        depth: {{ $in.rateLimit.ipStrategyDepth }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit-webhooks
+  namespace: {{ .Release.Namespace }}
+spec:
+  rateLimit:
+    average: {{ $in.webhookRateLimit.average }}
+    burst: {{ $in.webhookRateLimit.burst }}
+    period: 1s
+    sourceCriterion:
+      ipStrategy:
+        depth: {{ $in.rateLimit.ipStrategyDepth }}
+{{- range $name, $bytes := dict "body-limit" $in.bodyLimits.default "body-limit-uploads" $in.bodyLimits.uploads "body-limit-webhooks" $in.bodyLimits.webhooks }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+spec:
+  buffering:
+    maxRequestBodyBytes: {{ int $bytes }}
+    memRequestBodyBytes: 2097152
+{{- end }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: TLSOption
+metadata:
+  name: nexuscall-tls
+  namespace: {{ .Release.Namespace }}
+spec:
+  minVersion: VersionTLS12
+  sniStrict: true
+{{- if $in.tls.issuerRef.name }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nexuscall-public
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ $in.tls.secretName }}
+  dnsNames: [{{ .Values.global.publicHost | quote }}]
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    name: {{ $in.tls.issuerRef.name }}
+    kind: {{ $in.tls.issuerRef.kind }}
+{{- end }}
+{{- /* Canary: weighted TraefikService per component with a canary. */}}
+{{- range $name, $cfg := .Values.canary }}
+{{- if or (hasKey $root.Values.services $name) (eq $name "web") }}
+{{- $port := ternary $root.Values.web.port 8000 (eq $name "web") }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: TraefikService
+metadata:
+  name: {{ $name }}-weighted
+  namespace: {{ $root.Release.Namespace }}
+spec:
+  weighted:
+    services:
+      - { name: {{ $name }}, port: {{ $port }}, weight: {{ sub 100 (int (default 10 $cfg.weight)) }} }
+      - { name: {{ $name }}-canary, port: {{ $port }}, weight: {{ int (default 10 $cfg.weight) }} }
+{{- end }}
+{{- end }}
+{{- range $ep := list "public" "internal" }}
+{{- $routes := list }}
+{{- range $r := $root.Values.routes }}
+{{- $svc := ternary $root.Values.web (get $root.Values.services $r.service) (eq $r.service "web") }}
+{{- if and (has $ep $r.entryPoints) $svc $svc.enabled }}{{- $routes = append $routes $r }}{{- end }}
+{{- end }}
+{{- if $routes }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nexuscall-{{ $ep }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+spec:
+  entryPoints: [{{ get $in.entryPoints $ep }}]
+  routes:
+    {{- range $r := $routes }}
+    {{- $chain := get $chains $r.kind }}
+    {{- if not $chain }}{{- fail (printf "route %s: unknown kind %q" $r.name $r.kind) }}{{- end }}
+    {{- $port := ternary $root.Values.web.port 8000 (eq $r.service "web") }}
+    # {{ $r.name }} ({{ $r.kind }})
+    - kind: Rule
+      match: {{ ternary (printf "Host(`%s`) && (%s)" $root.Values.global.publicHost $r.match) $r.match (eq $ep "public") | quote }}
+      priority: {{ $r.priority }}
+      middlewares:
+        {{- range $chain }}
+        - name: {{ . }}
+        {{- end }}
+      services:
+        {{- if and (get $root.Values.canary $r.service) (eq $ep "public") }}
+        - { name: {{ $r.service }}-weighted, kind: TraefikService }
+        {{- else }}
+        - { name: {{ $r.service }}, port: {{ $port }} }
+        {{- end }}
+    {{- end }}
+  {{- if eq $ep "public" }}
+  tls:
+    secretName: {{ $in.tls.secretName }}
+    options:
+      name: nexuscall-tls
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

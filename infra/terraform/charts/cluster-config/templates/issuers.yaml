@@ -1,0 +1,106 @@
+# Internal CA for in-cluster TLS (Vault). Bootstrap: self-signed issuer -> CA certificate -> CA issuer.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: nexus-selfsigned-bootstrap
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nexus-internal-ca
+  namespace: {{ .Values.certManagerNamespace }}
+spec:
+  isCA: true
+  commonName: nexus-internal-ca
+  secretName: nexus-internal-ca
+  duration: 87600h
+  privateKey: { algorithm: ECDSA, size: 384 }
+  issuerRef: { name: nexus-selfsigned-bootstrap, kind: ClusterIssuer }
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: nexus-internal-ca
+spec:
+  ca:
+    secretName: nexus-internal-ca
+{{- if .Values.acme.email }}
+{{- range $name, $server := dict "letsencrypt-staging" "https://acme-staging-v02.api.letsencrypt.org/directory" "letsencrypt-production" "https://acme-v02.api.letsencrypt.org/directory" }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $name }}
+spec:
+  acme:
+    email: {{ $.Values.acme.email | quote }}
+    server: {{ $server }}
+    privateKeySecretRef: { name: {{ $name }}-account }
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: {{ $.Values.acme.ingressClass }}
+{{- end }}
+{{- end }}
+---
+# Vault server certificate (listener TLS). Applications use the agent's local listener instead.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-server-tls
+  namespace: {{ .Values.vault.namespace }}
+spec:
+  secretName: vault-server-tls
+  duration: 2160h
+  renewBefore: 360h
+  privateKey: { algorithm: ECDSA, size: 256, rotationPolicy: Always }
+  dnsNames:
+    - {{ .Values.vault.serviceName }}
+    - {{ .Values.vault.serviceName }}.{{ .Values.vault.namespace }}
+    - {{ .Values.vault.serviceName }}.{{ .Values.vault.namespace }}.svc
+    - {{ .Values.vault.serviceName }}-active.{{ .Values.vault.namespace }}.svc
+    - "*.{{ .Values.vault.serviceName }}-internal"
+    - "*.{{ .Values.vault.serviceName }}-internal.{{ .Values.vault.namespace }}.svc"
+  ipAddresses: ["127.0.0.1"]
+  issuerRef: { name: nexus-internal-ca, kind: ClusterIssuer }
+{{- if .Values.keycloak.host }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-public
+  namespace: {{ .Values.keycloak.namespace }}
+spec:
+  secretName: keycloak-public-tls
+  dnsNames: [{{ .Values.keycloak.host | quote }}]
+  issuerRef: { name: {{ .Values.keycloak.issuer }}, kind: ClusterIssuer }
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: keycloak-headers
+  namespace: {{ .Values.keycloak.namespace }}
+spec:
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    contentTypeNosniff: true
+---
+# Only the realm endpoints are public; the admin console stays private (port-forward or VPN).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-public
+  namespace: {{ .Values.keycloak.namespace }}
+spec:
+  entryPoints: [{{ .Values.keycloak.entryPoint }}]
+  routes:
+    - kind: Rule
+      match: Host(`{{ .Values.keycloak.host }}`) && (PathPrefix(`/realms/`) || PathPrefix(`/resources/`)) && !PathPrefix(`/realms/master`)
+      middlewares: [{ name: keycloak-headers }]
+      services: [{ name: {{ .Values.keycloak.serviceName }}, port: {{ .Values.keycloak.servicePort }} }]
+  tls:
+    secretName: keycloak-public-tls
+{{- end }}

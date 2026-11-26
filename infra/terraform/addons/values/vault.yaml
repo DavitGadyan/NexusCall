@@ -1,0 +1,49 @@
+global:
+  enabled: true
+  tlsDisable: false
+injector:
+  enabled: true
+  replicas: 2
+  # The agent talks to Vault over TLS; pods mount the CA via the vault.hashicorp.com/tls-secret annotation.
+  agentDefaults:
+    cpuRequest: 10m
+    memRequest: 32Mi
+    cpuLimit: 100m
+    memLimit: 64Mi
+  securityContext:
+    pod:
+      runAsNonRoot: true
+      seccompProfile: { type: RuntimeDefault }
+server:
+  extraEnvironmentVars:
+    VAULT_CACERT: /vault/userconfig/vault-server-tls/ca.crt
+    VAULT_ADDR: https://127.0.0.1:8200
+  volumes:
+    - name: vault-server-tls
+      secret:
+        secretName: vault-server-tls
+  volumeMounts:
+    - name: vault-server-tls
+      mountPath: /vault/userconfig/vault-server-tls
+      readOnly: true
+  dataStorage:
+    enabled: true
+    size: 20Gi
+  standalone:
+    enabled: false
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  statefulSet:
+    securityContext:
+      pod:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      container:
+        allowPrivilegeEscalation: false
+        capabilities: { drop: ["ALL"] }
+ui:
+  enabled: false

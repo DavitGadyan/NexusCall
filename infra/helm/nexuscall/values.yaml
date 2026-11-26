@@ -1,0 +1,1548 @@
+# NexusCall umbrella chart — default values (production-shaped; ENVIRONMENT FILES MUST OVERRIDE THE
+# placeholders). See docs/DEPLOYMENT.md. Example overrides: values-staging.yaml, values-production.yaml.
+#
+# The `services`, `workers` and `routes` sections at the bottom are GENERATED from scripts/gen_compose.py,
+# scripts/gen_traefik.py and infra/vault/bootstrap.sh by infra/helm/generate.py. CI fails when they drift.
+# Override generated entries from an environment file (maps merge), e.g.
+#   services:
+#     voice-service:
+#       replicas: 6
+# Workers are a list; tune them with `workerOverrides.<worker-name>` instead of replacing the list.
+
+global:
+  # staging | production. The chart refuses anything else (development uses Docker Compose).
+  env: production
+  # Must be `real`. The chart fails the render for any other value (build.md §9.3, ADR-0002).
+  providerMode: real
+  logLevel: INFO
+  # Public origin, e.g. https://app.example.com. Twilio, SNS and browsers reach the platform here.
+  publicBaseUrl: ""
+  publicHost: ""
+  # Client IPs uvicorn trusts in X-Forwarded-* (the cluster pod CIDR where Traefik runs).
+  forwardedAllowIps: "10.0.0.0/8"
+
+  image:
+    # Registry/repository prefix; each component appends its own image name.
+    registry: ""
+    # Release tag (never `dev` or `latest`). A digest, when set, wins over the tag.
+    tag: ""
+    digest: ""
+    toolsImage: tools
+    pullPolicy: IfNotPresent
+    pullSecrets: []
+
+  oidc:
+    # Issuer exactly as tokens carry it (public Keycloak URL, e.g. https://id.example.com/realms/nexus).
+    issuer: ""
+    # In-cluster Keycloak base URL (back channel: token, JWKS, admin API) and the realm.
+    internalUrl: "http://keycloak-keycloakx-http.nexus-identity.svc"
+    realm: nexus
+    audience: nexus-api
+
+  vault:
+    # The Vault server (used by the injected agent). Applications talk to the agent's local cache
+    # listener (http://127.0.0.1:8200) with the token the agent renders, so they need no Vault CA.
+    addr: "https://vault.nexus-vault.svc:8200"
+    # Kubernetes auth mount (infra/terraform/vault-config) and the KV v2 mount.
+    authPath: auth/kubernetes
+    kvMount: secret
+    # Secret (in this namespace) with key ca.crt for the Vault server certificate; mounted only into the agent.
+    tlsSecret: vault-ca
+    caCertPath: /vault/tls/ca.crt
+    agentImage: ""  # empty: the injector default
+    agentResources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { cpu: 100m, memory: 64Mi }
+
+  database:
+    host: nexus-pg-rw.nexus-data.svc
+    port: 5432
+    # Passed to asyncpg as ?ssl=…  (`require` encrypts; use verify-full with a mounted CA when available).
+    ssl: require
+    # Vault database secrets engine mount and role-name pattern (`<db>-app`, `<db>-inspector`, …).
+    vaultMount: database
+
+  redis:
+    host: redis-ha-haproxy.nexus-data.svc
+    port: 6379
+    db: 0
+    # KV path (under secret/<env>/) holding the shared Redis password, field `password`.
+    secretPath: platform/shared/redis
+
+  rabbitmq:
+    host: nexus-rabbitmq.nexus-data.svc
+    port: 5672
+    scheme: amqp
+    vhost: nexus
+    # Vault RabbitMQ secrets engine mount; role name = service name (permissions mirror
+    # scripts/bootstrap_rabbitmq.py, see infra/terraform/generated/topology.json).
+    vaultMount: rabbitmq
+    managementUrl: "http://nexus-rabbitmq.nexus-data.svc:15672/api"
+
+  objectStore:
+    endpointUrl: "http://seaweedfs-s3.nexus-data.svc:8333"
+    # Browser-reachable endpoint used only to sign short-lived download URLs.
+    publicEndpointUrl: ""
+    region: us-east-1
+
+  otel:
+    endpoint: "http://otel-collector-opentelemetry-collector.nexus-observability.svc:4318"
+
+  clamav:
+    host: clamav.nexus-platform.svc
+    port: 3310
+
+  # Selectors used by NetworkPolicies to reach (or accept traffic from) infrastructure in other namespaces.
+  endpoints:
+    dns:
+      namespace: kube-system
+      podLabels: { k8s-app: kube-dns }
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    postgres:
+      namespace: nexus-data
+      podLabels: { cnpg.io/cluster: nexus-pg }
+      ports: [{ port: 5432 }]
+    redis:
+      namespace: nexus-data
+      podLabels: { app: redis-ha-haproxy }
+      ports: [{ port: 6379 }]
+    rabbitmq:
+      namespace: nexus-data
+      podLabels: { app.kubernetes.io/name: nexus-rabbitmq }
+      ports: [{ port: 5672 }, { port: 5671 }]
+    rabbitmqManagement:
+      namespace: nexus-data
+      podLabels: { app.kubernetes.io/name: nexus-rabbitmq }
+      ports: [{ port: 15672 }]
+    vault:
+      namespace: nexus-vault
+      podLabels: { app.kubernetes.io/name: vault, component: server }
+      ports: [{ port: 8200 }]
+    keycloak:
+      namespace: nexus-identity
+      podLabels: { app.kubernetes.io/name: keycloakx }
+      ports: [{ port: 8080 }]
+    objectstore:
+      namespace: nexus-data
+      podLabels: { app.kubernetes.io/name: seaweedfs }
+      ports: [{ port: 8333 }]
+      # External S3 instead of SeaweedFS: list the provider CIDRs here (podLabels are then ignored).
+      cidrs: []
+    otel:
+      namespace: nexus-observability
+      podLabels: { app.kubernetes.io/name: opentelemetry-collector }
+      ports: [{ port: 4318 }]
+    clamav:
+      namespace: nexus-platform
+      podLabels: { app: clamav }
+      ports: [{ port: 3310 }]
+    traefik:
+      namespace: nexus-edge
+      podLabels: { app.kubernetes.io/name: traefik }
+      ports: [{ port: 8081 }]
+    prometheus:
+      namespace: nexus-observability
+      podLabels: { app.kubernetes.io/name: prometheus }
+
+  # Public internet egress for provider-calling services: everything except private, link-local,
+  # CGNAT and metadata ranges, TCP 443 only. Narrow it to provider CIDRs where they are published.
+  externalEgress:
+    cidr: 0.0.0.0/0
+    except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+    ports: [443]
+
+namespace:
+  # The namespace is created by Terraform (infra/terraform/addons) with Pod Security `restricted`.
+  # When true, the chart also renders it (use only for clusters without the Terraform add-ons).
+  create: false
+  podSecurity: restricted
+
+podSecurity:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+# Spread replicas across nodes (and zones when the nodes carry the zone label).
+topologySpread:
+  enabled: true
+  zoneKey: topology.kubernetes.io/zone
+
+rollout:
+  # Rolling update: never drop below the desired count; surge a quarter.
+  maxSurge: 25%
+  maxUnavailable: 0
+
+# Canary per component: a second Deployment `<name>-canary` with its own image tag. Edge traffic is split
+# by weight through a TraefikService; in-cluster calls keep using the stable Service. Workers split by
+# replica count (they compete on the same queues). See docs/DEPLOYMENT.md "Canary".
+canary: {}
+#  ai-gateway:
+#    tag: "1.4.0-rc1"
+#    replicas: 1
+#    weight: 10        # percent of edge traffic
+
+web:
+  enabled: true
+  image: web
+  port: 3000
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  hpa: { enabled: true, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 70 }
+  terminationGracePeriodSeconds: 30
+  # The BFF forwards /api/v1/* to Traefik's internal entrypoint (not published outside the cluster).
+  apiInternalUrl: "http://traefik-internal.nexus-edge.svc:8081"
+  redisDb: 1
+  env: {}
+  # Vault KV paths (under secret/<env>/) read by the `web-bff` role.
+  secrets:
+    oidcClientSecret: { path: platform/web-bff/oidc, field: client_secret }
+    sessionKey: { path: platform/web-bff/session, field: key }
+
+# Extra, non-secret environment per service (Helm `tpl` is applied). Merged over the generated `env`.
+serviceEnv:
+  tenant-service:
+    KEYCLOAK_ADMIN_BASE: "{{ .Values.global.oidc.internalUrl }}"
+    KEYCLOAK_REALM: "{{ .Values.global.oidc.realm }}"
+    RABBITMQ_MANAGEMENT_URL: "{{ .Values.global.rabbitmq.managementUrl }}"
+    RABBITMQ_AMQP_HOST: "{{ .Values.global.rabbitmq.host }}"
+    RABBITMQ_AMQP_PORT: "{{ .Values.global.rabbitmq.port }}"
+    RABBITMQ_VHOST: "{{ .Values.global.rabbitmq.vhost }}"
+  email-inbox-service:
+    CLAMAV_HOST: "{{ .Values.global.clamav.host }}"
+    CLAMAV_PORT: "{{ .Values.global.clamav.port }}"
+
+migrations:
+  enabled: true
+  # Vault role allowed to read the static owner credentials of every service database.
+  vaultRole: nexus-migrations
+  activeDeadlineSeconds: 1800
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+workerOverrides: {}
+#  worker-calls:
+#    replicas: 6
+#    enabled: true
+
+ingress:
+  enabled: true
+  # Traefik entrypoint names (infra/terraform/addons/traefik.tf).
+  entryPoints:
+    public: websecure
+    internal: internal
+  tls:
+    # cert-manager issues this Secret when issuerRef.name is set; otherwise provide it yourself.
+    secretName: nexuscall-tls
+    issuerRef: { name: "", kind: ClusterIssuer }
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1s
+    # Number of trusted proxies in front of Traefik (the cloud load balancer), for the client IP.
+    ipStrategyDepth: 0
+  webhookRateLimit:
+    average: 50
+    burst: 100
+  bodyLimits:
+    default: 10485760
+    uploads: 11534336
+    webhooks: 1048576
+  hsts:
+    maxAge: 31536000
+    includeSubdomains: true
+
+networkPolicy:
+  enabled: true
+
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+  prometheusRule:
+    enabled: false
+
+# Sections below are generated; values above may reference them.
+# >>> BEGIN GENERATED by infra/helm/generate.py (do not edit by hand; edit the sources) >>>
+services:
+  tenant-service:
+    enabled: true
+    image: tenant-service
+    package: tenant_service
+    database: tenant
+    profiles:
+    - core
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - ai-gateway
+    - analytics-service
+    - audit-service
+    - booking-service
+    - call-service
+    - campaign-service
+    - crm-service
+    - email-inbox-service
+    - email-service
+    - integration-service
+    - mcp-registry
+    - notification-service
+    - tool-execution
+    - voice-service
+    - web
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    - rabbitmqManagement
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  audit-service:
+    enabled: true
+    image: audit-service
+    package: audit_service
+    database: audit
+    profiles:
+    - core
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  notification-service:
+    enabled: true
+    image: notification-service
+    package: notification_service
+    database: notify
+    profiles:
+    - core
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 60
+    public: true
+    dependsOn:
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env:
+      NOTIFICATION_FROM_ADDRESS: ''
+    secretEnv: {}
+  crm-service:
+    enabled: true
+    image: crm-service
+    package: crm_service
+    database: crm
+    profiles:
+    - crm
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  campaign-service:
+    enabled: true
+    image: campaign-service
+    package: campaign_service
+    database: campaign
+    profiles:
+    - crm
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - call-service
+    - crm-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  ai-agent-service:
+    enabled: true
+    image: ai-agent-service
+    package: ai_agent_service
+    database: agent
+    profiles:
+    - crm
+    - calls
+    - email
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-gateway
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  ai-gateway:
+    enabled: true
+    image: ai-gateway
+    package: ai_gateway
+    database: aigw
+    profiles:
+    - crm
+    - calls
+    - email
+    port: 8000
+    replicas: 3
+    resources:
+      requests:
+        cpu: 250m
+        memory: 384Mi
+      limits:
+        cpu: '1'
+        memory: 768Mi
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 12
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - integration-service
+    - mcp-registry
+    - tenant-service
+    - tool-execution
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env: {}
+    secretEnv: {}
+  mcp-registry:
+    enabled: true
+    image: mcp-registry
+    package: mcp_registry
+    database: mcpreg
+    profiles:
+    - calls
+    - email
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+  tool-execution:
+    enabled: true
+    image: tool-execution
+    package: tool_execution
+    database: toolexec
+    profiles:
+    - calls
+    - email
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - booking-service
+    - call-service
+    - crm-service
+    - email-inbox-service
+    - integration-service
+    - mcp-registry
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env:
+      APPROVAL_TTL_SECONDS: '1800'
+    secretEnv: {}
+  call-service:
+    enabled: true
+    image: call-service
+    package: call_service
+    database: call
+    profiles:
+    - calls
+    port: 8000
+    replicas: 3
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 12
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - campaign-service
+    - crm-service
+    - integration-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env:
+      WEBHOOK_BASE_URL: '{{ .Values.global.publicBaseUrl }}'
+      MEDIA_STREAM_URL: wss://{{ .Values.global.publicHost }}/media/twilio
+    secretEnv:
+      STREAM_TOKEN_SECRET:
+        path: platform/call-service/stream-token
+        field: secret
+  voice-service:
+    enabled: true
+    image: voice-service
+    package: voice_service
+    database: voice
+    profiles:
+    - calls
+    port: 8000
+    replicas: 3
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: '2'
+        memory: 1Gi
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 12
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 600
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - ai-gateway
+    - call-service
+    - crm-service
+    - integration-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    externalEgress: true
+    env: {}
+    secretEnv:
+      STREAM_TOKEN_SECRET:
+        path: platform/voice-service/stream-token
+        field: secret
+  booking-service:
+    enabled: true
+    image: booking-service
+    package: booking_service
+    database: booking
+    profiles:
+    - calls
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - integration-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env: {}
+    secretEnv: {}
+  email-service:
+    enabled: true
+    image: email-service
+    package: email_service
+    database: email
+    profiles:
+    - email
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - crm-service
+    - integration-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env:
+      TRANSACTIONAL_QUEUE: emails.transactional_send
+    secretEnv: {}
+  email-inbox-service:
+    enabled: true
+    image: email-inbox-service
+    package: email_inbox_service
+    database: inbox
+    profiles:
+    - email
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 384Mi
+      limits:
+        cpu: '1'
+        memory: 768Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - ai-agent-service
+    - crm-service
+    - email-service
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    - clamav
+    externalEgress: true
+    env: {}
+    secretEnv: {}
+  integration-service:
+    enabled: true
+    image: integration-service
+    package: integration_service
+    database: integration
+    profiles:
+    - platform
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    externalEgress: true
+    env: {}
+    secretEnv: {}
+  analytics-service:
+    enabled: true
+    image: analytics-service
+    package: analytics_service
+    database: analytics
+    profiles:
+    - platform
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    terminationGracePeriodSeconds: 30
+    public: true
+    dependsOn:
+    - tenant-service
+    infra:
+    - postgres
+    - redis
+    - rabbitmq
+    - vault
+    - keycloak
+    - otel
+    - objectstore
+    externalEgress: false
+    env: {}
+    secretEnv: {}
+workers:
+- name: worker-imports
+  owner: crm-service
+  command:
+  - celery
+  - -A
+  - crm_service.worker
+  - worker
+  - -Q
+  - imports.process
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - imports.process
+  profiles:
+  - crm
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+- name: worker-campaign
+  owner: campaign-service
+  command:
+  - celery
+  - -A
+  - campaign_service.worker
+  - worker
+  - -Q
+  - calls.schedule
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - calls.schedule
+  profiles:
+  - crm
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+- name: worker-calls
+  owner: call-service
+  command:
+  - celery
+  - -A
+  - call_service.worker
+  - worker
+  - -Q
+  - calls.dispatch,calls.provider_callbacks
+  - --concurrency
+  - '4'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - calls.dispatch
+  - calls.provider_callbacks
+  profiles:
+  - calls
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env:
+    WEBHOOK_BASE_URL: '{{ .Values.global.publicBaseUrl }}'
+    MEDIA_STREAM_URL: wss://{{ .Values.global.publicHost }}/media/twilio
+  secretEnv:
+    STREAM_TOKEN_SECRET:
+      path: platform/call-service/stream-token
+      field: secret
+- name: worker-voice-post
+  owner: voice-service
+  command:
+  - celery
+  - -A
+  - voice_service.worker
+  - worker
+  - -Q
+  - voice.postprocess
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - voice.postprocess
+  profiles:
+  - calls
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv:
+    STREAM_TOKEN_SECRET:
+      path: platform/voice-service/stream-token
+      field: secret
+- name: worker-email-send
+  owner: email-service
+  command:
+  - celery
+  - -A
+  - email_service.worker
+  - worker
+  - -Q
+  - emails.campaign_send
+  - --concurrency
+  - '4'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - emails.campaign_send
+  profiles:
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env:
+    TRANSACTIONAL_QUEUE: emails.transactional_send
+  secretEnv: {}
+- name: worker-email-transactional
+  owner: email-service
+  command:
+  - celery
+  - -A
+  - email_service.worker
+  - worker
+  - -Q
+  - emails.transactional_send
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - emails.transactional_send
+  profiles:
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env:
+    TRANSACTIONAL_QUEUE: emails.transactional_send
+  secretEnv: {}
+- name: worker-email-inbound
+  owner: email-inbox-service
+  command:
+  - celery
+  - -A
+  - email_inbox_service.worker
+  - worker
+  - -Q
+  - emails.inbound_process
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - emails.inbound_process
+  profiles:
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+- name: worker-ai-drafts
+  owner: email-inbox-service
+  command:
+  - celery
+  - -A
+  - email_inbox_service.worker
+  - worker
+  - -Q
+  - emails.ai_draft
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - emails.ai_draft
+  profiles:
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+- name: worker-email-approved
+  owner: email-inbox-service
+  command:
+  - celery
+  - -A
+  - email_inbox_service.worker
+  - worker
+  - -Q
+  - emails.send_approved
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - emails.send_approved
+  profiles:
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+- name: worker-ai-agent
+  owner: ai-agent-service
+  command:
+  - celery
+  - -A
+  - ai_agent_service.worker
+  - worker
+  - -Q
+  - ai.knowledge_ingest
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - ai.knowledge_ingest
+  profiles:
+  - crm
+  - calls
+  - email
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 1830
+  env: {}
+  secretEnv: {}
+- name: worker-analytics
+  owner: analytics-service
+  command:
+  - celery
+  - -A
+  - analytics_service.worker:celery_app
+  - worker
+  - -Q
+  - analytics.aggregate
+  - --concurrency
+  - '2'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - analytics.aggregate
+  profiles:
+  - platform
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv: {}
+routes:
+- name: web
+  service: web
+  match: PathPrefix(`/`)
+  priority: 1
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: tenant-service
+  service: tenant-service
+  match: PathPrefix(`/api/v1/me`) || PathPrefix(`/api/v1/tenants`) || PathPrefix(`/api/v1/memberships`) || PathPrefix(`/api/v1/invitations`)
+    || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`)
+    || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`)
+    || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`)
+    || PathPrefix(`/api/v1/platform/service-accounts`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: crm-service
+  service: crm-service
+  match: PathPrefix(`/api/v1/tags`) || PathPrefix(`/api/v1/custom-fields`) || PathPrefix(`/api/v1/organizations`) || PathPrefix(`/api/v1/leads`)
+    || PathPrefix(`/api/v1/contacts`) || PathPrefix(`/api/v1/imports`) || PathPrefix(`/api/v1/segments`) || PathPrefix(`/api/v1/suppressions`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: campaign-service
+  service: campaign-service
+  match: PathPrefix(`/api/v1/campaigns`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: call-service
+  service: call-service
+  match: PathPrefix(`/api/v1/calls`) || PathPrefix(`/api/v1/inbound-numbers`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: call-service-webhooks
+  service: call-service
+  match: PathPrefix(`/webhooks/twilio`)
+  priority: 150
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit-webhooks
+  - body-limit-webhooks
+  kind: webhook
+- name: voice-service
+  service: voice-service
+  match: PathPrefix(`/api/v1/voice`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: ai-agent-service
+  service: ai-agent-service
+  match: PathPrefix(`/api/v1/ai/agents`) || PathPrefix(`/api/v1/ai/knowledge`) || PathPrefix(`/api/v1/ai/evals`) || PathPrefix(`/api/v1/ai/drafting-runs`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: ai-gateway
+  service: ai-gateway
+  match: PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`)
+    || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/ai/models`)
+    || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`) || PathPrefix(`/api/v1/ai/requests`) || PathPrefix(`/api/v1/ai/security-events`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: mcp-registry
+  service: mcp-registry
+  match: PathPrefix(`/api/v1/ai/tools`) || PathPrefix(`/api/v1/ai/mcp-servers`) || PathPrefix(`/api/v1/platform/ai/mcp-servers`)
+    || PathPrefix(`/api/v1/platform/ai/tools`) || PathPrefix(`/api/v1/platform/ai/policies`) || PathPrefix(`/api/v1/ai/grants`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: tool-execution
+  service: tool-execution
+  match: PathPrefix(`/api/v1/ai/tool-approvals`) || PathPrefix(`/api/v1/ai/tool-executions`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: booking-service
+  service: booking-service
+  match: PathPrefix(`/api/v1/bookings`) || PathPrefix(`/api/v1/availability`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: email-service
+  service: email-service
+  match: PathPrefix(`/api/v1/email/campaigns`) || PathPrefix(`/api/v1/email/templates`) || PathPrefix(`/api/v1/email/senders`)
+    || PathPrefix(`/api/v1/email/domains`) || PathPrefix(`/api/v1/email/messages`) || PathPrefix(`/api/v1/email/usage`) ||
+    PathPrefix(`/u/`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: email-service-webhooks
+  service: email-service
+  match: PathPrefix(`/webhooks/ses/events`)
+  priority: 150
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit-webhooks
+  - body-limit-webhooks
+  kind: webhook
+- name: email-inbox-service
+  service: email-inbox-service
+  match: PathPrefix(`/api/v1/email/inbox`) || PathPrefix(`/api/v1/email/drafts`) || PathPrefix(`/api/v1/email/mailboxes`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: email-inbox-service-webhooks
+  service: email-inbox-service
+  match: PathPrefix(`/webhooks/ses/inbound`)
+  priority: 150
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit-webhooks
+  - body-limit-webhooks
+  kind: webhook
+- name: integration-service
+  service: integration-service
+  match: PathPrefix(`/api/v1/integrations`) || PathPrefix(`/api/v1/webhooks/endpoints`) || PathPrefix(`/api/v1/platform/secrets`)
+    || PathPrefix(`/api/v1/platform/integrations`) || PathPrefix(`/oauth/callback`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: notification-service
+  service: notification-service
+  match: PathPrefix(`/api/v1/notifications`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: analytics-service
+  service: analytics-service
+  match: PathPrefix(`/api/v1/analytics`) || PathPrefix(`/api/v1/exports`) || PathPrefix(`/api/v1/platform/usage`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: audit-service
+  service: audit-service
+  match: PathPrefix(`/api/v1/audit`) || PathPrefix(`/api/v1/platform/audit`)
+  priority: 100
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit
+  kind: standard
+- name: voice-media
+  service: voice-service
+  match: PathPrefix(`/media/twilio`)
+  priority: 300
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit
+  kind: websocket
+- name: notification-stream
+  service: notification-service
+  match: Path(`/api/v1/notifications/stream`)
+  priority: 300
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  kind: stream
+- name: crm-service-uploads
+  service: crm-service
+  match: PathPrefix(`/api/v1/imports`)
+  priority: 200
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit-uploads
+  kind: upload
+- name: ai-agent-service-uploads
+  service: ai-agent-service
+  match: PathPrefix(`/api/v1/ai/knowledge/sources`)
+  priority: 200
+  entryPoints:
+  - public
+  - internal
+  middlewares:
+  - secure-headers
+  - rate-limit
+  - body-limit-uploads
+  kind: upload
+generatedNotes:
+  requiredEnv:
+    notification-service:
+    - NOTIFICATION_FROM_ADDRESS
+  forbiddenEnv:
+  - MAILPIT_SMTP_HOST
+  - MCP_ALLOW_HTTP_PRIVATE
+  queuesWithoutWorker:
+  - integrations.webhooks
+  - notifications.send
+  externalEgressReasons:
+    call-service: Twilio REST API
+    voice-service: Deepgram and ElevenLabs streaming APIs
+    ai-gateway: Anthropic and the embedding provider
+    email-service: Amazon SES and SNS certificate fetch
+    email-inbox-service: SNS signing certificates, SES inbound S3 bucket
+    notification-service: Amazon SES
+    tool-execution: registered MCP servers and tool providers (SSRF-guarded)
+    booking-service: Google Calendar
+    integration-service: OAuth token endpoints, connection tests, tenant webhook endpoints (SSRF-guarded)
+# <<< END GENERATED <<<

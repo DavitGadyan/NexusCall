@@ -1,0 +1,14 @@
+apiVersion: v2
+name: nexuscall
+description: >-
+  NexusCall umbrella chart. One reusable template set renders the 16 FastAPI services, the web BFF and
+  the Celery workers (Deployment, Service, ServiceAccount, HPA, PodDisruptionBudget, NetworkPolicy),
+  the Traefik edge routes and the pre-upgrade migration Job. Stateful dependencies and cluster add-ons
+  are installed by infra/terraform (ADR-0004).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.29.0-0"
+keywords: [nexuscall, fastapi, celery, vault, traefik]
+annotations:
+  nexuscall.io/generated-from: "scripts/gen_compose.py, scripts/gen_traefik.py, infra/vault/bootstrap.sh"

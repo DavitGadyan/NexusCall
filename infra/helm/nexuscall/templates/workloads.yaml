@@ -1,0 +1,151 @@
+{{- /*
+Deployments for every service, the web BFF and every Celery worker (stable track), plus an optional
+canary Deployment per component (values `canary.<name>`).
+*/ -}}
+{{- $root := . -}}
+{{- $components := (include "nexuscall.components" . | fromYaml).items -}}
+{{- range $c := $components }}
+{{- $canary := default (dict) (get $root.Values.canary $c.name) }}
+{{- $tracks := list "stable" }}
+{{- if $canary }}{{- $tracks = append $tracks "canary" }}{{- end }}
+{{- range $track := $tracks }}
+{{- $isCanary := eq $track "canary" }}
+{{- $tag := ternary (default "" $canary.tag) $c.tag $isCanary }}
+{{- $digest := ternary (default "" $canary.digest) $c.digest $isCanary }}
+{{- $replicas := ternary (default 1 $canary.replicas) $c.replicas $isCanary }}
+{{- $role := default $c.identity $c.vaultRole }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ ternary (printf "%s-canary" $c.name) $c.name $isCanary }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" $track) | nindent 4 }}
+spec:
+  {{- if not (and $c.hpa.enabled (not $isCanary)) }}
+  replicas: {{ $replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "nexuscall.selectorLabels" (dict "c" $c "track" $track) | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ $root.Values.rollout.maxSurge }}
+      maxUnavailable: {{ $root.Values.rollout.maxUnavailable }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" $track) | nindent 8 }}
+      annotations:
+        checksum/common-env: {{ include "nexuscall.commonEnv" $root | sha256sum | trunc 16 }}
+        {{- $tpl := include "nexuscall.vaultEnvTemplate" (dict "root" $root "c" $c) }}
+        {{- include "nexuscall.vaultAnnotations" (dict "root" $root "role" $role "template" $tpl "prepopulateOnly" false) | nindent 8 }}
+        {{- if eq $c.kind "service" }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $c.port | quote }}
+        prometheus.io/path: /metrics
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $c.identity }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: {{ $c.grace }}
+      securityContext:
+        {{- include "nexuscall.podSecurityContext" $root | nindent 8 }}
+      {{- with $root.Values.global.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if $root.Values.topologySpread.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "nexuscall.selectorLabels" (dict "c" $c "track" $track) | nindent 14 }}
+        - maxSkew: 1
+          topologyKey: {{ $root.Values.topologySpread.zoneKey }}
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "nexuscall.selectorLabels" (dict "c" $c "track" $track) | nindent 14 }}
+      {{- end }}
+      containers:
+        - name: {{ ternary "app" $c.kind (eq $c.kind "service") }}
+          image: {{ include "nexuscall.image" (dict "root" $root "image" $c.image "tag" $tag "digest" $digest) }}
+          imagePullPolicy: {{ $root.Values.global.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - {{ $c.command | quote }}
+          {{- if ne $c.kind "web" }}
+          envFrom:
+            - configMapRef:
+                name: nexuscall-common
+          {{- end }}
+          env:
+            {{- if eq $c.kind "web" }}
+            - { name: ENV, value: {{ $root.Values.global.env | quote }} }
+            - { name: NEXUS_PUBLIC_BASE_URL, value: {{ $root.Values.global.publicBaseUrl | quote }} }
+            - { name: NEXUS_OIDC_PUBLIC_ISSUER, value: {{ $root.Values.global.oidc.issuer | quote }} }
+            - name: NEXUS_OIDC_INTERNAL_BASE
+              value: {{ printf "%s/realms/%s" (trimSuffix "/" $root.Values.global.oidc.internalUrl) $root.Values.global.oidc.realm | quote }}
+            - { name: NEXUS_API_INTERNAL_URL, value: {{ $root.Values.web.apiInternalUrl | quote }} }
+            - { name: PORT, value: {{ $c.port | quote }} }
+            {{- else }}
+            - { name: SERVICE_NAME, value: {{ $c.identity | quote }} }
+            - { name: SERVICE_CLIENT_ID, value: {{ printf "svc-%s" $c.identity | quote }} }
+            {{- end }}
+            {{- range $k, $v := $c.env }}
+            - name: {{ $k }}
+              value: {{ tpl (toString $v) $root | quote }}
+            {{- end }}
+            {{- if $isCanary }}
+            - { name: NEXUS_TRACK, value: canary }
+            {{- end }}
+          {{- if ne $c.kind "worker" }}
+          ports:
+            - name: http
+              containerPort: {{ $c.port }}
+              protocol: TCP
+          startupProbe:
+            httpGet: { path: {{ $c.healthPath }}, port: http }
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: { path: {{ $c.healthPath }}, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: {{ $c.readyPath }}, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          lifecycle:
+            preStop:
+              # Let endpoints and Traefik drop this pod before SIGTERM (graceful drain).
+              exec: { command: ["sleep", "5"] }
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexuscall.containerSecurityContext" $root | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- if eq $c.kind "web" }}
+            - { name: next-cache, mountPath: /srv/apps/web/.next/cache }
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
+        {{- if eq $c.kind "web" }}
+        - name: next-cache
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
+        {{- end }}
+        {{- include "nexuscall.vaultTokenVolume" $root | nindent 8 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,40 @@
+# Defaults; infra/terraform/addons/data.tf sets the real values (databases and broker topology come from
+# infra/terraform/generated/topology.json, generated from the development sources of truth).
+postgres:
+  name: nexus-pg
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4-56-bookworm
+  storage: { size: 100Gi, storageClass: "" }
+  walStorage: { size: 20Gi, storageClass: "" }
+  maxConnections: 1000
+  sharedBuffers: 2GB
+  resources:
+    requests: { cpu: "1", memory: 4Gi }
+    limits: { memory: 8Gi }
+  # service name -> database name
+  databases: {}
+  # Secrets created out of band (docs/DEPLOYMENT.md "Secrets bootstrap"), type kubernetes.io/basic-auth.
+  vaultAdminSecret: nexus-pg-vault-admin
+  keycloakSecret: keycloak-db-credentials
+  backup:
+    enabled: true
+    destinationPath: ""          # s3://bucket/prefix
+    endpointURL: ""              # empty for AWS S3
+    s3CredentialsSecret: nexus-pg-backup-s3   # keys ACCESS_KEY_ID, ACCESS_SECRET_KEY
+    retentionPolicy: 30d
+    schedule: "0 0 2 * * *"      # six-field cron (seconds first)
+  bootstrapImage: ""             # psql image for the bootstrap Job; empty = imageName
+
+rabbitmq:
+  name: nexus-rabbitmq
+  replicas: 3
+  image: ""                      # empty: the operator default
+  storage: { size: 20Gi, storageClass: "" }
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits: { memory: 2Gi }
+  vhost: nexus
+  exchanges: []
+  deadLetterExchange: nexus.dlx
+  deadLetterQueues: []
+  dlqPolicy: { name: task-dlq, pattern: "", definition: {} }

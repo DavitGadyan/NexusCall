@@ -1,0 +1,24 @@
+# In-cluster S3-compatible store (ADR-0013). Buckets are private; services get per-service S3 identities
+# whose keys live in Vault (secret/<env>/platform/<service>/s3). The S3 identities Secret
+# `seaweedfs-s3-config` is created out of band; see docs/DEPLOYMENT.md "Secrets bootstrap".
+# Service `seaweedfs-s3:8333` is what global.objectStore.endpointUrl points at.
+master:
+  replicas: 3
+  volumeSizeLimitMB: 30000
+volume:
+  replicas: 3
+  dataDirs:
+    - name: data
+      type: persistentVolumeClaim
+      size: 500Gi
+      maxVolumes: 0
+filer:
+  replicas: 2
+s3:
+  enabled: true
+  replicas: 2
+  port: 8333
+  enableAuth: true
+  existingConfigSecret: seaweedfs-s3-config
+global:
+  enableSecurity: true

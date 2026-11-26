@@ -1,0 +1,7 @@
+apiVersion: v2
+name: raw-manifests
+description: >-
+  Applies upstream release manifests (passed in as strings by Terraform after a SHA-256 check) as one
+  Helm release. Namespace objects are dropped; Terraform owns namespaces.
+type: application
+version: 0.1.0

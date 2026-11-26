@@ -1,0 +1,15 @@
+crds:
+  enabled: true
+  keep: true
+replicaCount: 2
+podDisruptionBudget:
+  enabled: true
+prometheus:
+  enabled: true
+securityContext:
+  runAsNonRoot: true
+  seccompProfile: { type: RuntimeDefault }
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }

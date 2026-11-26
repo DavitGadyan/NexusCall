@@ -1,0 +1,11 @@
+NexusCall {{ .Chart.AppVersion }} ({{ .Values.global.env }}) in namespace {{ .Release.Namespace }}.
+
+Public URL: {{ .Values.global.publicBaseUrl }}
+Image:      {{ .Values.global.image.registry }} {{ .Values.global.image.digest | default .Values.global.image.tag }}
+
+Check the rollout:
+  kubectl -n {{ .Release.Namespace }} get deploy,hpa,pdb
+  kubectl -n {{ .Release.Namespace }} logs job/nexus-migrations -c migrate   (kept only if it failed)
+
+Then run the smoke test (tests/load/README.md) and Platform -> Security -> RLS coverage scan.
+Rollback: helm rollback {{ .Release.Name }} <revision>  (migrations are forward-only; see docs/DEPLOYMENT.md)
