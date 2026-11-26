@@ -7,7 +7,7 @@ There is deliberately no endpoint that changes policies.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.engine import make_url
@@ -23,8 +23,11 @@ def rls_router(settings: ServiceSettings) -> APIRouter:
     router = APIRouter(prefix="/internal/v1/rls", tags=["internal"], include_in_schema=False)
     guard = require_service(*settings.rls_scan_clients)
 
+    # The guard is passed as a default, not inside `Annotated[...]`: with postponed annotations FastAPI
+    # evaluates the annotation in module globals, where the local `guard` does not exist, and then treats
+    # the parameter as a required query string (every scan failed with 422).
     @router.get("/coverage")
-    async def coverage(request: Request, _: Annotated[Principal, Depends(guard)]) -> dict[str, Any]:
+    async def coverage(request: Request, _principal: Principal = Depends(guard)) -> dict[str, Any]:
         url = settings.inspector_database_url
         if url is None:
             return {"service": settings.service_name, "available": False, "tables": [], "roles": []}
