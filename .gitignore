@@ -28,3 +28,9 @@ apps/web/playwright-report/
 
 # Browser automation output (local only)
 .playwright-mcp/
+
+# Portfolio media (large binaries, kept out of git)
+portfolio/upwork/media/
+portfolio/upwork/screenshots/
+portfolio/upwork/_probe/
+portfolio/upwork/_build/

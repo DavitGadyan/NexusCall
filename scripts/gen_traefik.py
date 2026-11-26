@@ -25,6 +25,9 @@ ROUTES = {
         "/api/v1/platform/rls",
         "/api/v1/platform/service-accounts",
         "/api/v1/platform/infra",
+        "/api/v1/platform/overview",
+        "/api/v1/platform/feature-flags",
+        "/api/v1/support-grants",
     ],
     "crm-service": [
         "/api/v1/tags",
@@ -40,6 +43,7 @@ ROUTES = {
         "/api/v1/platform/ai/routing",
         "/api/v1/platform/ai/kill-switches",
         "/api/v1/platform/ai/security-events",
+        "/api/v1/platform/ai/tenants",
         "/api/v1/ai/models",
         "/api/v1/ai/usage",
         "/api/v1/ai/budgets",

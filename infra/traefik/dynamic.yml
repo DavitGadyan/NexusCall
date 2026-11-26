@@ -8,7 +8,7 @@ http:
       middlewares: [secure-headers, rate-limit]
       entryPoints: [web]
     tenant-service:
-      rule: "PathPrefix(`/api/v1/me`) || PathPrefix(`/api/v1/tenants`) || PathPrefix(`/api/v1/memberships`) || PathPrefix(`/api/v1/invitations`) || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`) || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`) || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`) || PathPrefix(`/api/v1/platform/service-accounts`) || PathPrefix(`/api/v1/platform/infra`)"
+      rule: "PathPrefix(`/api/v1/me`) || PathPrefix(`/api/v1/tenants`) || PathPrefix(`/api/v1/memberships`) || PathPrefix(`/api/v1/invitations`) || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`) || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`) || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`) || PathPrefix(`/api/v1/platform/service-accounts`) || PathPrefix(`/api/v1/platform/infra`) || PathPrefix(`/api/v1/platform/overview`) || PathPrefix(`/api/v1/platform/feature-flags`) || PathPrefix(`/api/v1/support-grants`)"
       priority: 100
       service: tenant-service
       middlewares: [secure-headers, rate-limit]
@@ -44,7 +44,7 @@ http:
       middlewares: [secure-headers, rate-limit]
       entryPoints: [web, internal]
     ai-gateway:
-      rule: "PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`) || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/ai/models`) || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`) || PathPrefix(`/api/v1/ai/requests`) || PathPrefix(`/api/v1/ai/security-events`)"
+      rule: "PathPrefix(`/api/v1/platform/ai/providers`) || PathPrefix(`/api/v1/platform/ai/models`) || PathPrefix(`/api/v1/platform/ai/routing`) || PathPrefix(`/api/v1/platform/ai/kill-switches`) || PathPrefix(`/api/v1/platform/ai/security-events`) || PathPrefix(`/api/v1/platform/ai/tenants`) || PathPrefix(`/api/v1/ai/models`) || PathPrefix(`/api/v1/ai/usage`) || PathPrefix(`/api/v1/ai/budgets`) || PathPrefix(`/api/v1/ai/requests`) || PathPrefix(`/api/v1/ai/security-events`)"
       priority: 100
       service: ai-gateway
       middlewares: [secure-headers, rate-limit]

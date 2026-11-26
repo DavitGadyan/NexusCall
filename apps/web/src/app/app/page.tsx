@@ -4,6 +4,7 @@ import { filterNav, workspaceNav } from "@/lib/nav";
 import { hasPermission } from "@/lib/permissions";
 import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { loadShell } from "@/lib/server/shell";
+import { WorkspaceDashboard } from "@/components/dashboard/WorkspaceDashboard";
 
 export const metadata = { title: "Workspace" };
 
@@ -20,6 +21,7 @@ export default async function WorkspaceHome() {
         title={tenant ? tenant.name : "Workspace"}
         description={`Signed in as ${me.email ?? me.name ?? "you"}. Your roles here: ${access.roles.join(", ") || "none"}.`}
       />
+      {hasPermission(access.permissions, "analytics:read") ? <WorkspaceDashboard /> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sections.map((s) => (
           <Card key={s.label}>
