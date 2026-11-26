@@ -45,7 +45,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
 7. CI (`.github/workflows/ci.yml`): ruff, mypy, pytest per service (matrix), web lint, typecheck and tests, docker build, Trivy, gitleaks.
 - **Exit:** `make up` brings everything up healthy, `make test` is green, and CI is green.
 
-### Phase 2 — IAM, tenants, RLS, audit (blocks all business features)
+### Phase 2 — IAM, tenants, RLS, audit (blocks all business features) ✅
+> **Delivered (2026-11-26).** tenant-service (memberships, permission catalogue, invitations, teams, settings, platform IAM, RLS coverage view, DLQ console with audited replay/discard), audit-service (append-only, per-tenant hash chain), notification-service (in-app + SSE filtered by permission, escaped email templates), analytics-service. Repository-wide guards: migration RLS check, public-network block in tests. Web: BFF (PKCE, encrypted sessions, CSRF), platform and tenant admin consoles.
 - Keycloak realm `nexus`:
   - clients `web-bff` (confidential, PKCE) and `svc-<name>` (client credentials)
   - realm role `platform_owner`/`platform_operator` only for platform staff
@@ -83,7 +84,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
   - step-up enforcement
 - **Exit:** acceptance criteria §15.1–4 and §22.1–9, 18–20.
 
-### Phase 3 — CRM, campaigns, tenant configuration, agent config
+### Phase 3 — CRM, campaigns, tenant configuration, agent config ✅
+> **Delivered (2026-11-26).** crm-service (56 tests), campaign-service (83), ai-agent-service (102: agents, immutable versions, knowledge/RAG with per-tenant exact search, drafting, evals), AI Gateway with OWASP LLM Top 10 controls (71), mcp-registry (37), tool-execution (59). Web pages for CRM, campaigns, agents and knowledge.
 - **CRM:**
   - contacts/leads CRUD with filters
   - CSV import: MinIO → `imports.process`, with per-row validation and dedupe by normalized E.164/email
@@ -101,7 +103,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
 - **mcp-registry:** tool catalogue seeded with internal tools (`crm.get_contact` C1, `booking.find_slots` C0, `booking.create_tentative` C2, `booking.confirm` C3, `call.transfer_to_human` C2, `crm.add_note` C2) and agent-tool grants.
 - **UI:** Leads, Contacts, Imports, Segments, Call campaigns builder, AI Agents, Knowledge.
 
-### Phase 4 — Call center (outbound + inbound)
+### Phase 4 — Call center (outbound + inbound) ✅
+> **Delivered (2026-11-26).** call-service (65 tests: state machine, pre-dial gates, reconcile-before-redial, signed per-tenant webhooks), voice-service (58: signed single-use stream tokens, STT → gateway → TTS, barge-in, code-level opt-out/handoff/no-record), booking-service (45: exclusion constraint). Twilio/Deepgram/ElevenLabs/Google Calendar simulators. Web pages for live calls, history, transcripts, numbers, bookings and AI approvals. Gap: call summary not exposed by the API.
 - **Telephony:**
   - Twilio adapter (create call, fetch, hangup, conference, numbers) plus fake
   - signature-verified webhooks
@@ -120,7 +123,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
 - **UI:** live activity (SSE), call history, call detail (transcript, recording via signed URL, outcome), inbound numbers, bookings calendar.
 - **E2E:** lead → campaign → call → outcome → booking, and an inbound call that produces a transcript.
 
-### Phase 5 — Email campaigns
+### Phase 5 — Email campaigns ✅
+> **Delivered (2026-11-26).** email-service (173 tests): verified domains only, sanitized templates, quotas and token buckets, reconcile-never-resend, SNS-verified events, auto-pause on bounce/complaint rates, RFC 8058 unsubscribe. Separate transactional queue and worker. Web pages for domains, senders, templates and campaigns.
 - **Senders and domains:** SES identity, DKIM tokens, SPF/DMARC check status.
 - **Templates:** versioned and sanitized (bleach), with a link allowlist and blocked `javascript:`/`data:` schemes.
 - **Email campaigns:** the state machine from §4.1, segment selection, sending windows, batched fan-out to `emails.campaign_send`, and a token bucket per tenant, domain and provider.
@@ -129,7 +133,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
 - RFC 8058 one-click unsubscribe plus a preference page, and cross-channel suppression through events.
 - **UI:** senders/domains, templates editor with preview, email campaigns, reports.
 
-### Phase 6 — Inbox and AI reply drafts
+### Phase 6 — Inbox and AI reply drafts ✅
+> **Delivered (2026-11-26).** email-inbox-service (63 tests): SNS-verified inbound, ClamAV scan, sanitized HTML, append-only draft versions, send only from a persisted human approval with re-checks at send time; 12-payload injection corpus against an obedient fake model ends in a pending draft every time. Web inbox and draft review.
 - SES inbound (SNS → S3 object) normalized into mailboxes, threads and messages. Threading uses `Message-ID`, `In-Reply-To` and `References`.
 - **Attachments:** size and type limits, ClamAV, quarantine, and signed URLs with a 5-minute TTL.
 - **`emails.ai_draft`:**
@@ -142,7 +147,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
 - **Tests:** unapproved draft cannot be sent, stale approval, double approve, prompt-injection corpus.
 - **UI:** Inbox threads, Drafts, Approval queue.
 
-### Phase 7 — Integrations, analytics, AI control plane
+### Phase 7 — Integrations, analytics, AI control plane ✅
+> **Delivered (2026-11-26).** integration-service (68 tests): Vault-only credentials, test-before-switch rotation, OAuth with single-use bound state, SSRF-safe signed webhooks; Vault write limited to the catalogued platform paths (policy test). Web pages for integrations, webhooks, analytics, tenant AI settings, platform AI gateway/MCP registry/policies, infrastructure and DLQ.
 - OAuth connections (Google Calendar, HubSpot as the first CRM target) with refresh tokens in Vault.
 - Provider connection wizard: write to Vault → test → status, with rotate, revoke and disable actions.
 - Outbound webhooks: HMAC-SHA256 signed, with timestamp, retries, delivery log and SSRF guard.
@@ -155,7 +161,8 @@ Every phase delivers migrations, unit and integration tests, OpenAPI plus event 
   - Services health
   - Usage
 
-### Phase 8 — Production hardening
+### Phase 8 — Production hardening ✅
+> **Delivered (2026-11-26), not deployed.** Helm chart (restricted pods, default-deny NetworkPolicies, Vault Agent, migration hook, canary), generator with CI drift check, Terraform add-ons and Vault config, k6 scripts, 7 runbooks, DEPLOYMENT.md, compliance checklist. Validated with helm lint, kubeconform and terraform validate only; no cluster, k6 not executed.
 - Helm umbrella chart:
   - per-service Deployments and HPAs (call/voice on concurrent-session metrics)
   - PDBs
@@ -203,3 +210,7 @@ docs/{adr,architecture}/ + ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, THREAT_MODEL
 - Whether calls go to non-US/EU countries, which affects caller-ID and number provisioning.
 - SMS notifications: Twilio SMS is an optional adapter in Phase 7.
 - Auto-send policy for low-risk email intents. Deferred, off by default.
+- Draft retention: draft history is append-only, so the retention job cannot purge draft text. Decide between crypto-shredding and a retention exception.
+- Knowledge search scoping: add `agent_id` to the internal search contract so each agent is limited to its own sources server-side.
+- Inbound mailbox ownership: require a verified sending domain before a tenant can claim an inbound address.
+- Analytics day boundaries: UTC today; tenant time zones would need re-aggregation.

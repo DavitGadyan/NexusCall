@@ -3,9 +3,9 @@
   "meta": {
     "name": "NexusCall",
     "tagline": "Multi-tenant AI call center & agency platform",
-    "version": "0.9.0-phase8",
+    "version": "1.0.0-rc1",
     "updated": "2026-11-26",
-    "status": "services-built-ui-in-progress",
+    "status": "built-not-deployed",
     "description": "Inbound and outbound AI voice calls, CRM, campaigns, email campaigns, AI-drafted email replies with human approval, and platform/tenant admin consoles. Built on 16 FastAPI microservices, PostgreSQL RLS, RabbitMQ/Celery, Vault and an AI Gateway security boundary."
   },
   "layers": [
@@ -125,7 +125,7 @@
         "Tailwind",
         "shadcn/ui"
       ],
-      "summary": "One app with three surfaces: Tenant Workspace, Tenant Admin and Platform Admin. Route handlers act as the BFF and hold OIDC tokens server-side.",
+      "summary": "One app with three surfaces: Tenant Workspace, Tenant Admin and Platform Admin. Route handlers act as the BFF and hold OIDC tokens server-side. 99 routes: workspace (CRM, campaigns, calls, bookings, inbox, email, agents, knowledge, approvals, integrations, analytics), tenant admin and platform admin consoles.",
       "why": "Tokens never reach browser JavaScript. The browser holds only an HttpOnly session cookie, which shrinks the XSS blast radius.",
       "security": [
         "OIDC Auth Code + PKCE",
@@ -135,7 +135,8 @@
         "permission-aware navigation (UI only, backend authoritative)"
       ],
       "phase": 1,
-      "status": "built"
+      "status": "built",
+      "tests": 307
     },
     {
       "id": "api_gateway",
