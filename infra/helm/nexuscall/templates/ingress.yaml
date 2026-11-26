@@ -3,15 +3,16 @@
 Traefik IngressRoutes generated from scripts/gen_traefik.py (values `routes`):
   public   entrypoint (TLS): browsers, API clients, Twilio/SNS webhooks, Twilio Media Streams (WebSocket)
   internal entrypoint (plain HTTP, ClusterIP only): the web BFF forwards /api/v1/* here
-Route kinds: standard (buffered, 10 MB), upload (11 MB), webhook (own rate limit, 1 MB),
-stream (SSE, unbuffered) and websocket (unbuffered). Authorization is never delegated to Traefik.
+Route kinds: standard, webhook (own rate limit), stream (SSE) and websocket. No route uses Traefik's
+`buffering` middleware: it also buffers responses, which turns empty responses (204, 303) into 500 and
+breaks streaming. Request body limits are enforced by each service and the web BFF (1 MiB default,
+11 MiB for uploads). Authorization is never delegated to Traefik.
 */ -}}
 {{- $root := . -}}
 {{- $in := .Values.ingress -}}
 {{- $chains := dict
-  "standard" (list "secure-headers" "rate-limit" "body-limit")
-  "upload" (list "secure-headers" "rate-limit" "body-limit-uploads")
-  "webhook" (list "secure-headers" "rate-limit-webhooks" "body-limit-webhooks")
+  "standard" (list "secure-headers" "rate-limit")
+  "webhook" (list "secure-headers" "rate-limit-webhooks")
   "stream" (list "secure-headers" "rate-limit")
   "websocket" (list "secure-headers" "rate-limit") -}}
 ---
@@ -65,18 +66,6 @@ spec:
     sourceCriterion:
       ipStrategy:
         depth: {{ $in.rateLimit.ipStrategyDepth }}
-{{- range $name, $bytes := dict "body-limit" $in.bodyLimits.default "body-limit-uploads" $in.bodyLimits.uploads "body-limit-webhooks" $in.bodyLimits.webhooks }}
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: {{ $name }}
-  namespace: {{ $root.Release.Namespace }}
-spec:
-  buffering:
-    maxRequestBodyBytes: {{ int $bytes }}
-    memRequestBodyBytes: 2097152
-{{- end }}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: TLSOption

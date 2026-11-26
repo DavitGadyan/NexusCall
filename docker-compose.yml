@@ -104,13 +104,17 @@ services:
     restart: unless-stopped
     cap_add:
     - IPC_LOCK
-    command:
-    - server
-    - -dev
-    - -dev-listen-address=0.0.0.0:8200
+    entrypoint:
+    - /bin/sh
+    - /vault/config/dev-server.sh
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN}
+      VAULT_DEV_ROOT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
+      ENV: ${ENV:-development}
       SKIP_SETCAP: 'true'
+    volumes:
+    - ./infra/vault/server.hcl:/vault/config/server.hcl:ro
+    - ./infra/vault/dev-server.sh:/vault/config/dev-server.sh:ro
+    - vaultdata:/vault/data
     ports:
     - 127.0.0.1:${NEXUS_PORT_VAULT:-47200}:8200
     networks:
@@ -118,12 +122,10 @@ services:
     mem_limit: 256m
     healthcheck:
       test:
-      - CMD
-      - vault
-      - status
-      - -address=http://127.0.0.1:8200
+      - CMD-SHELL
+      - test -f /tmp/vault-ready && vault status -address=http://127.0.0.1:8200
       interval: 5s
-      retries: 20
+      retries: 30
   vault-bootstrap:
     image: hashicorp/vault:1.18.3
     entrypoint:
@@ -315,55 +317,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-  fake-providers:
-    restart: unless-stopped
-    read_only: true
-    cap_drop: &id001
-    - ALL
-    security_opt: &id002
-    - no-new-privileges:true
-    tmpfs: &id003
-    - /tmp:size=64m
-    networks: &id004
-    - internal
-    mem_limit: 192m
-    env_file: &id005
-    - .env
-    image: nexuscall/fake-providers:dev
-    build:
-      context: .
-      dockerfile: services/fake_providers/Dockerfile
-    profiles:
-    - fakes
-    - calls
-    - email
-    - crm
-    environment:
-      ENV: development
-      SERVICE_NAME: fake-providers
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
-      FAKE_TWILIO_VOICE_URL: http://call-service:8000/webhooks/twilio/voice
-      FAKE_TWILIO_STATUS_URL: http://call-service:8000/webhooks/twilio/status
-      INBOUND_WEBHOOK_URL: http://email-inbox-service:8000/webhooks/ses/inbound
-      EMAIL_EVENTS_WEBHOOK_URL: http://email-service:8000/webhooks/ses/events
-      MAILPIT_SMTP_HOST: mailpit:1025
-      FAKE_PROVIDERS_SELF_URL: http://fake-providers:8000
-      S3_ENDPOINT_URL: http://objectstore:9000
-      S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
-      S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
-      NEXUS_PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
-  mailpit:
-    image: axllent/mailpit:v1.21.8
-    profiles:
-    - email
-    - core
-    ports:
-    - 127.0.0.1:${NEXUS_PORT_MAILPIT:-47025}:8025
-    networks:
-    - internal
-    mem_limit: 96m
   clamav:
-    image: clamav/clamav:1.4.1
+    image: clamav/clamav:1.4.7
     profiles:
     - email
     networks:
@@ -435,12 +390,17 @@ services:
   tenant-service:
     restart: unless-stopped
     read_only: true
-    cap_drop: *id001
-    security_opt: *id002
-    tmpfs: *id003
-    networks: *id004
+    cap_drop: &id001
+    - ALL
+    security_opt: &id002
+    - no-new-privileges:true
+    tmpfs: &id003
+    - /tmp:size=64m
+    networks: &id004
+    - internal
     mem_limit: 256m
-    env_file: *id005
+    env_file: &id005
+    - .env
     image: nexuscall/tenant-service:dev
     build:
       context: .
@@ -450,7 +410,7 @@ services:
     environment:
       SERVICE_NAME: tenant-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://tenant_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://tenant_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
       PLATFORM_DATABASE_URL: postgresql+asyncpg://tenant_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/tenant
@@ -464,8 +424,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/tenant-service/role_id
       VAULT_SECRET_ID_FILE: /approle/tenant-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -503,7 +461,7 @@ services:
     environment:
       SERVICE_NAME: audit-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://audit_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://audit_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
       PLATFORM_DATABASE_URL: postgresql+asyncpg://audit_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/audit
@@ -517,8 +475,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/audit-service/role_id
       VAULT_SECRET_ID_FILE: /approle/audit-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -546,7 +502,7 @@ services:
     environment:
       SERVICE_NAME: notification-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://notify_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://notify_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
       PLATFORM_DATABASE_URL: postgresql+asyncpg://notify_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/notify
@@ -560,16 +516,13 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/notification-service/role_id
       VAULT_SECRET_ID_FILE: /approle/notification-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
       S3_ACCESS_KEY_ID: ${S3_DEV_ACCESS_KEY}
       S3_SECRET_ACCESS_KEY: ${S3_DEV_SECRET_KEY}
       PUBLIC_BASE_URL: ${NEXUS_PUBLIC_BASE_URL}
-      MAILPIT_SMTP_HOST: mailpit:1025
-      NOTIFICATION_FROM_ADDRESS: no-reply@nexus.local
+      NOTIFICATION_FROM_ADDRESS: ${NOTIFICATION_FROM_ADDRESS:-no-reply@nexus.local}
     volumes:
     - approle:/approle:ro
     depends_on: *id006
@@ -591,7 +544,7 @@ services:
     environment:
       SERVICE_NAME: crm-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://crm_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://crm_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       PLATFORM_DATABASE_URL: postgresql+asyncpg://crm_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
@@ -605,8 +558,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/crm-service/role_id
       VAULT_SECRET_ID_FILE: /approle/crm-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -634,7 +585,7 @@ services:
     environment:
       SERVICE_NAME: campaign-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://campaign_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://campaign_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       PLATFORM_DATABASE_URL: postgresql+asyncpg://campaign_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
@@ -648,8 +599,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/campaign-service/role_id
       VAULT_SECRET_ID_FILE: /approle/campaign-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -679,7 +628,7 @@ services:
     environment:
       SERVICE_NAME: ai-agent-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://agent_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://agent_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       PLATFORM_DATABASE_URL: postgresql+asyncpg://agent_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
@@ -693,8 +642,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/ai-agent-service/role_id
       VAULT_SECRET_ID_FILE: /approle/ai-agent-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -724,7 +671,7 @@ services:
     environment:
       SERVICE_NAME: ai-gateway
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://aigw_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://aigw_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
       PLATFORM_DATABASE_URL: postgresql+asyncpg://aigw_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/aigw
@@ -738,8 +685,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/ai-gateway/role_id
       VAULT_SECRET_ID_FILE: /approle/ai-gateway/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -768,7 +713,7 @@ services:
     environment:
       SERVICE_NAME: mcp-registry
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://mcpreg_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://mcpreg_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
       PLATFORM_DATABASE_URL: postgresql+asyncpg://mcpreg_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/mcpreg
@@ -782,8 +727,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/mcp-registry/role_id
       VAULT_SECRET_ID_FILE: /approle/mcp-registry/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -813,7 +756,7 @@ services:
     environment:
       SERVICE_NAME: tool-execution
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://toolexec_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://toolexec_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
       PLATFORM_DATABASE_URL: postgresql+asyncpg://toolexec_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/toolexec
@@ -827,8 +770,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/tool-execution/role_id
       VAULT_SECRET_ID_FILE: /approle/tool-execution/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -858,7 +799,7 @@ services:
     environment:
       SERVICE_NAME: call-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://call_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://call_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       PLATFORM_DATABASE_URL: postgresql+asyncpg://call_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
@@ -872,8 +813,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/call-service/role_id
       VAULT_SECRET_ID_FILE: /approle/call-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -904,7 +843,7 @@ services:
     environment:
       SERVICE_NAME: voice-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://voice_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://voice_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       PLATFORM_DATABASE_URL: postgresql+asyncpg://voice_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
@@ -918,8 +857,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/voice-service/role_id
       VAULT_SECRET_ID_FILE: /approle/voice-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -948,7 +885,7 @@ services:
     environment:
       SERVICE_NAME: booking-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://booking_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://booking_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
       PLATFORM_DATABASE_URL: postgresql+asyncpg://booking_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/booking
@@ -962,8 +899,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/booking-service/role_id
       VAULT_SECRET_ID_FILE: /approle/booking-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -991,7 +926,7 @@ services:
     environment:
       SERVICE_NAME: email-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://email_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://email_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       PLATFORM_DATABASE_URL: postgresql+asyncpg://email_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
@@ -1005,8 +940,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1035,7 +968,7 @@ services:
     environment:
       SERVICE_NAME: email-inbox-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://inbox_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://inbox_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       PLATFORM_DATABASE_URL: postgresql+asyncpg://inbox_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
@@ -1049,8 +982,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-inbox-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-inbox-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1078,7 +1009,7 @@ services:
     environment:
       SERVICE_NAME: integration-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://integration_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://integration_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       PLATFORM_DATABASE_URL: postgresql+asyncpg://integration_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
@@ -1092,8 +1023,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/integration-service/role_id
       VAULT_SECRET_ID_FILE: /approle/integration-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1122,7 +1051,7 @@ services:
     environment:
       SERVICE_NAME: analytics-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://analytics_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://analytics_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       PLATFORM_DATABASE_URL: postgresql+asyncpg://analytics_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
@@ -1136,8 +1065,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/analytics-service/role_id
       VAULT_SECRET_ID_FILE: /approle/analytics-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1157,6 +1084,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/crm-service:dev
+    pull_policy: never
     profiles:
     - crm
     command:
@@ -1174,7 +1102,7 @@ services:
     environment:
       SERVICE_NAME: crm-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://crm_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://crm_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
       PLATFORM_DATABASE_URL: postgresql+asyncpg://crm_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/crm
@@ -1188,8 +1116,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/crm-service/role_id
       VAULT_SECRET_ID_FILE: /approle/crm-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1218,6 +1144,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/campaign-service:dev
+    pull_policy: never
     profiles:
     - crm
     command:
@@ -1235,7 +1162,7 @@ services:
     environment:
       SERVICE_NAME: campaign-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://campaign_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://campaign_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
       PLATFORM_DATABASE_URL: postgresql+asyncpg://campaign_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/campaign
@@ -1249,8 +1176,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/campaign-service/role_id
       VAULT_SECRET_ID_FILE: /approle/campaign-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1279,6 +1204,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/call-service:dev
+    pull_policy: never
     profiles:
     - calls
     command:
@@ -1296,7 +1222,7 @@ services:
     environment:
       SERVICE_NAME: call-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://call_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://call_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
       PLATFORM_DATABASE_URL: postgresql+asyncpg://call_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/call
@@ -1310,8 +1236,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/call-service/role_id
       VAULT_SECRET_ID_FILE: /approle/call-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1343,6 +1267,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/voice-service:dev
+    pull_policy: never
     profiles:
     - calls
     command:
@@ -1360,7 +1285,7 @@ services:
     environment:
       SERVICE_NAME: voice-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://voice_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://voice_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
       PLATFORM_DATABASE_URL: postgresql+asyncpg://voice_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/voice
@@ -1374,8 +1299,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/voice-service/role_id
       VAULT_SECRET_ID_FILE: /approle/voice-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1405,6 +1328,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/email-service:dev
+    pull_policy: never
     profiles:
     - email
     command:
@@ -1422,7 +1346,7 @@ services:
     environment:
       SERVICE_NAME: email-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://email_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://email_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       PLATFORM_DATABASE_URL: postgresql+asyncpg://email_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
@@ -1436,8 +1360,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1467,6 +1389,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/email-service:dev
+    pull_policy: never
     profiles:
     - email
     command:
@@ -1484,7 +1407,7 @@ services:
     environment:
       SERVICE_NAME: email-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://email_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://email_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
       PLATFORM_DATABASE_URL: postgresql+asyncpg://email_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/email
@@ -1498,8 +1421,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1529,6 +1450,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/email-inbox-service:dev
+    pull_policy: never
     profiles:
     - email
     command:
@@ -1546,7 +1468,7 @@ services:
     environment:
       SERVICE_NAME: email-inbox-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://inbox_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://inbox_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       PLATFORM_DATABASE_URL: postgresql+asyncpg://inbox_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
@@ -1560,8 +1482,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-inbox-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-inbox-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1590,6 +1510,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/email-inbox-service:dev
+    pull_policy: never
     profiles:
     - email
     command:
@@ -1607,7 +1528,7 @@ services:
     environment:
       SERVICE_NAME: email-inbox-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://inbox_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://inbox_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       PLATFORM_DATABASE_URL: postgresql+asyncpg://inbox_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
@@ -1621,8 +1542,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-inbox-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-inbox-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1651,6 +1570,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/email-inbox-service:dev
+    pull_policy: never
     profiles:
     - email
     command:
@@ -1668,7 +1588,7 @@ services:
     environment:
       SERVICE_NAME: email-inbox-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://inbox_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://inbox_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
       PLATFORM_DATABASE_URL: postgresql+asyncpg://inbox_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/inbox
@@ -1682,8 +1602,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/email-inbox-service/role_id
       VAULT_SECRET_ID_FILE: /approle/email-inbox-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1712,6 +1630,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/ai-agent-service:dev
+    pull_policy: never
     profiles:
     - crm
     - calls
@@ -1731,7 +1650,7 @@ services:
     environment:
       SERVICE_NAME: ai-agent-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://agent_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://agent_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
       PLATFORM_DATABASE_URL: postgresql+asyncpg://agent_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/agent
@@ -1745,8 +1664,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/ai-agent-service/role_id
       VAULT_SECRET_ID_FILE: /approle/ai-agent-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1775,6 +1692,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/integration-service:dev
+    pull_policy: never
     profiles:
     - platform
     command:
@@ -1792,7 +1710,7 @@ services:
     environment:
       SERVICE_NAME: integration-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://integration_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://integration_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
       PLATFORM_DATABASE_URL: postgresql+asyncpg://integration_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/integration
@@ -1806,8 +1724,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/integration-service/role_id
       VAULT_SECRET_ID_FILE: /approle/integration-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1837,6 +1753,7 @@ services:
     mem_limit: 256m
     env_file: *id005
     image: nexuscall/analytics-service:dev
+    pull_policy: never
     profiles:
     - platform
     command:
@@ -1854,7 +1771,7 @@ services:
     environment:
       SERVICE_NAME: analytics-service
       ENV: ${ENV:-development}
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PROVIDER_MODE: ${PROVIDER_MODE:-real}
       DATABASE_URL: postgresql+asyncpg://analytics_app:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       INSPECTOR_DATABASE_URL: postgresql+asyncpg://analytics_inspector:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
       PLATFORM_DATABASE_URL: postgresql+asyncpg://analytics_platform:${NEXUS_DB_DEV_PASSWORD}@postgres:5432/analytics
@@ -1868,8 +1785,6 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_ROLE_ID_FILE: /approle/analytics-service/role_id
       VAULT_SECRET_ID_FILE: /approle/analytics-service/secret_id
-      FAKE_PROVIDERS_URL: http://fake-providers:8000
-      FAKE_PROVIDER_SECRET: ${FAKE_PROVIDER_SECRET}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       S3_ENDPOINT_URL: http://objectstore:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${NEXUS_PORT_S3:-47900}
@@ -1899,3 +1814,4 @@ volumes:
   objectdata: {}
   tempodata: {}
   approle: {}
+  vaultdata: {}

@@ -18,7 +18,7 @@ SERVICES: list[tuple[str, str, str, list[str], dict[str, str]]] = [
     ("tenant-service", "tenant_service", "tenant", ["core"], {}),
     ("audit-service", "audit_service", "audit", ["core"], {}),
     ("notification-service", "notification_service", "notify", ["core"],
-     {"MAILPIT_SMTP_HOST": "mailpit:1025", "NOTIFICATION_FROM_ADDRESS": "no-reply@nexus.local"}),
+     {"NOTIFICATION_FROM_ADDRESS": "${NOTIFICATION_FROM_ADDRESS:-no-reply@nexus.local}"}),
     ("crm-service", "crm_service", "crm", ["crm"], {}),
     ("campaign-service", "campaign_service", "campaign", ["crm"], {}),
     ("ai-agent-service", "ai_agent_service", "agent", ["crm", "calls", "email"], {}),
@@ -83,7 +83,7 @@ WORKERS: list[tuple[str, str, list[str], list[str]]] = [
 # Outbox relays and event consumers run inside each service process (lifespan tasks) to keep the
 # laptop footprint small; FOR UPDATE SKIP LOCKED makes multiple replicas safe.
 
-ALL_PROFILES = ["core", "crm", "calls", "email", "platform", "obs", "fakes"]
+ALL_PROFILES = ["core", "crm", "calls", "email", "platform", "obs"]
 
 PY_COMMON = {
     "restart": "unless-stopped",
@@ -101,7 +101,7 @@ def py_env(name: str, db: str) -> dict[str, str]:
     return {
         "SERVICE_NAME": name,
         "ENV": "${ENV:-development}",
-        "PROVIDER_MODE": "${PROVIDER_MODE:-fake}",
+        "PROVIDER_MODE": "${PROVIDER_MODE:-real}",
         "DATABASE_URL": f"postgresql+asyncpg://{db}_app:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
         "INSPECTOR_DATABASE_URL": f"postgresql+asyncpg://{db}_inspector:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
         "PLATFORM_DATABASE_URL": f"postgresql+asyncpg://{db}_platform:${{NEXUS_DB_DEV_PASSWORD}}@postgres:5432/{db}",
@@ -115,8 +115,6 @@ def py_env(name: str, db: str) -> dict[str, str]:
         "VAULT_ADDR": "http://vault:8200",
         "VAULT_ROLE_ID_FILE": f"/approle/{name}/role_id",
         "VAULT_SECRET_ID_FILE": f"/approle/{name}/secret_id",
-        "FAKE_PROVIDERS_URL": "http://fake-providers:8000",
-        "FAKE_PROVIDER_SECRET": "${FAKE_PROVIDER_SECRET}",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "${OTEL_EXPORTER_OTLP_ENDPOINT:-}",
         "S3_ENDPOINT_URL": "http://objectstore:9000",
         "S3_PUBLIC_ENDPOINT_URL": "http://localhost:${NEXUS_PORT_S3:-47900}",
@@ -237,15 +235,25 @@ def compose() -> dict:
             "image": "hashicorp/vault:1.18.3",
             "restart": "unless-stopped",
             "cap_add": ["IPC_LOCK"],
-            "command": ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"],
-            "environment": {"VAULT_DEV_ROOT_TOKEN_ID": "${VAULT_DEV_ROOT_TOKEN}", "SKIP_SETCAP": "true"},
+            # Persistent single-node server (file storage); auto-init and auto-unseal for local dev only.
+            "entrypoint": ["/bin/sh", "/vault/config/dev-server.sh"],
+            "environment": {
+                "VAULT_DEV_ROOT_TOKEN": "${VAULT_DEV_ROOT_TOKEN}",
+                "ENV": "${ENV:-development}",
+                "SKIP_SETCAP": "true",
+            },
+            "volumes": [
+                "./infra/vault/server.hcl:/vault/config/server.hcl:ro",
+                "./infra/vault/dev-server.sh:/vault/config/dev-server.sh:ro",
+                "vaultdata:/vault/data",
+            ],
             "ports": ["127.0.0.1:${NEXUS_PORT_VAULT:-47200}:8200"],
             "networks": ["internal"],
             "mem_limit": "256m",
             "healthcheck": {
-                "test": ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"],
+                "test": ["CMD-SHELL", "test -f /tmp/vault-ready && vault status -address=http://127.0.0.1:8200"],
                 "interval": "5s",
-                "retries": 20,
+                "retries": 30,
             },
         },
         "vault-bootstrap": {
@@ -395,37 +403,8 @@ def compose() -> dict:
             "mem_limit": "384m",
             "depends_on": {"keycloak": {"condition": "service_healthy"}, "redis": {"condition": "service_healthy"}},
         },
-        "fake-providers": {
-            **PY_COMMON,
-            "image": "nexuscall/fake-providers:dev",
-            "build": {"context": ".", "dockerfile": "services/fake_providers/Dockerfile"},
-            "profiles": ["fakes", "calls", "email", "crm"],
-            "environment": {
-                "ENV": "development",
-                "SERVICE_NAME": "fake-providers",
-                "FAKE_PROVIDER_SECRET": "${FAKE_PROVIDER_SECRET}",
-                "FAKE_TWILIO_VOICE_URL": "http://call-service:8000/webhooks/twilio/voice",
-                "FAKE_TWILIO_STATUS_URL": "http://call-service:8000/webhooks/twilio/status",
-                "INBOUND_WEBHOOK_URL": "http://email-inbox-service:8000/webhooks/ses/inbound",
-                "EMAIL_EVENTS_WEBHOOK_URL": "http://email-service:8000/webhooks/ses/events",
-                "MAILPIT_SMTP_HOST": "mailpit:1025",
-                "FAKE_PROVIDERS_SELF_URL": "http://fake-providers:8000",
-                "S3_ENDPOINT_URL": "http://objectstore:9000",
-                "S3_ACCESS_KEY_ID": "${S3_DEV_ACCESS_KEY}",
-                "S3_SECRET_ACCESS_KEY": "${S3_DEV_SECRET_KEY}",
-                "NEXUS_PUBLIC_BASE_URL": "${NEXUS_PUBLIC_BASE_URL}",
-            },
-            "mem_limit": "192m",
-        },
-        "mailpit": {
-            "image": "axllent/mailpit:v1.21.8",
-            "profiles": ["email", "core"],
-            "ports": ["127.0.0.1:${NEXUS_PORT_MAILPIT:-47025}:8025"],
-            "networks": ["internal"],
-            "mem_limit": "96m",
-        },
         "clamav": {
-            "image": "clamav/clamav:1.4.1",
+            "image": "clamav/clamav:1.4.7",
             "profiles": ["email"],
             "networks": ["internal"],
             "mem_limit": "1536m",
@@ -488,6 +467,8 @@ def compose() -> dict:
             **PY_COMMON,
             "mem_limit": "256m",
             "image": f"nexuscall/{owner}:dev",
+            # Built by the owning service in the same `up --build`; never pulled from a registry.
+            "pull_policy": "never",
             "profiles": profiles,
             "command": command,
             "environment": {**py_env(owner, db), **extra},
@@ -499,7 +480,7 @@ def compose() -> dict:
         "name": "nexuscall",
         "services": services,
         "networks": {"internal": {"driver": "bridge"}, "edge": {"driver": "bridge"}},
-        "volumes": {v: {} for v in ("pgdata", "rabbitdata", "objectdata", "tempodata", "approle")},
+        "volumes": {v: {} for v in ("pgdata", "rabbitdata", "objectdata", "tempodata", "approle", "vaultdata")},
     }
 
 

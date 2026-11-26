@@ -9,6 +9,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import anyio
 from redis.asyncio import Redis
 
 from nexus_core.errors import TooManyRequests
@@ -80,8 +81,12 @@ async def acquire_slot(redis: Redis | None, key: str, member: str, *, max_slots:
 
 
 async def release_slot(redis: Redis | None, key: str, member: str) -> None:
+    """Shielded: callers release in `finally`, often while their task is being cancelled (a client that
+    disconnects from a stream). Without the shield anyio re-raises the cancellation at this await, the
+    ZREM never runs, and the slot stays taken until its lease expires."""
     if redis is not None:
-        await redis.zrem(key, member)
+        with anyio.CancelScope(shield=True), anyio.move_on_after(5):
+            await redis.zrem(key, member)
 
 
 async def slots_in_use(redis: Redis | None, key: str) -> int:

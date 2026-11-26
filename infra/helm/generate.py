@@ -152,14 +152,14 @@ WORKER_GRACE_OVERRIDES = {"worker-ai-agent": 1830}
 MIDDLEWARES = {
     "secure-headers": "secure-headers",
     "rate-limit": "rate-limit",
-    "body-limit": "body-limit",
-    "body-limit-uploads": "body-limit-uploads",
 }
+# Routers that hold long-lived connections (see gen_traefik.py); every other router is "standard".
+LONG_LIVED_KINDS = {"voice-media": "websocket", "notification-stream": "stream"}
 ENTRYPOINTS = {"web": "public", "internal": "internal"}
 
 # scripts/bootstrap_rabbitmq.py builds the permission regexes inside main(); this generator mirrors that
 # construction. If main() changes, re-check `broker_roles()` and update this hash.
-BROKER_MAIN_SHA256 = "7ddedfc78092f4d68a4b983876adb0871c18b072b80ae352127904b71063b6a9"
+BROKER_MAIN_SHA256 = "8fec5f317af5b0659f2eeee89e57de430647eff24d5ae486c499fb6715723902"
 
 
 # --------------------------------------------------------------------------------------------------
@@ -209,11 +209,7 @@ def routes() -> list[dict[str, Any]]:
         terms = [t.strip() for t in r["rule"].split("||")]
         hooks = [t for t in terms if re.match(r"^PathPrefix\(`/webhooks/", t)]
         rest = [t for t in terms if t not in hooks]
-        kind = "standard"
-        if "body-limit" not in r["middlewares"] and "body-limit-uploads" not in r["middlewares"]:
-            kind = "websocket" if name == "voice-media" else "stream"
-        elif "body-limit-uploads" in r["middlewares"]:
-            kind = "upload"
+        kind = LONG_LIVED_KINDS.get(name, "standard")
         if rest:
             out.append(
                 {
@@ -234,7 +230,7 @@ def routes() -> list[dict[str, Any]]:
                     "match": " || ".join(hooks),
                     "priority": r["priority"] + 50,
                     "entryPoints": ["public"],
-                    "middlewares": ["secure-headers", "rate-limit-webhooks", "body-limit-webhooks"],
+                    "middlewares": ["secure-headers", "rate-limit-webhooks"],
                     "kind": "webhook",
                 }
             )

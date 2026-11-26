@@ -16,11 +16,13 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
+import anyio
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
+from starlette.types import Receive, Scope, Send
 
 from nexus_core.authz import AuthDep
 from nexus_core.errors import ServiceUnavailable, TooManyRequests
@@ -68,11 +70,30 @@ async def event_stream(request: Request, viewer: Viewer, principal: Any, pubsub:
                 last_beat = time.monotonic()
                 yield ": heartbeat\n\n"
     finally:
+        # Shielded: this runs while the task is being cancelled when the client disconnects.
+        with anyio.CancelScope(shield=True), anyio.move_on_after(5):
+            try:
+                await pubsub.unsubscribe()
+                await pubsub.aclose()
+            except Exception:  # noqa: BLE001 - connection may already be gone
+                log.debug("sse_pubsub_close_failed")
+
+
+class _LeasedStreamingResponse(StreamingResponse):
+    """Runs `on_close` however the response ends. A client that disconnects before the body starts makes
+    Starlette cancel the response before the body generator's first step; that generator's `finally`
+    then never runs, so releasing there alone leaks the stream slot until its lease expires."""
+
+    def __init__(self, content: AsyncIterator[str], *, on_close: Callable[[], Awaitable[None]], **kw: Any) -> None:
+        super().__init__(content, **kw)
+        self._on_close = on_close
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
-            await pubsub.unsubscribe()
-            await pubsub.aclose()
-        except Exception:  # noqa: BLE001 - connection may already be gone
-            log.debug("sse_pubsub_close_failed")
+            await super().__call__(scope, receive, send)
+        finally:
+            with anyio.CancelScope(shield=True), anyio.move_on_after(5):
+                await self._on_close()
 
 
 @router.get("/stream")
@@ -95,20 +116,27 @@ async def stream(request: Request, ctx: AuthDep) -> StreamingResponse:
     ):
         raise TooManyRequests("Too many open live-update streams")
     pubsub = redis.pubsub()
-    await pubsub.subscribe(ui_channel(tenant_id), notify_channel(tenant_id))
 
-    async def body() -> AsyncIterator[str]:
+    async def close() -> None:
         try:
-            async for chunk in event_stream(request, viewer, ctx.principal, pubsub):
-                yield chunk
-        finally:
-            try:
-                await release_slot(redis, slot_key, member)
-            except Exception:  # noqa: BLE001 - the slot lease expires on its own
-                log.debug("sse_slot_release_failed")
+            await pubsub.aclose()
+        except Exception:  # noqa: BLE001 - connection may already be gone
+            log.debug("sse_pubsub_close_failed")
+        try:
+            await release_slot(redis, slot_key, member)
+        except Exception:  # noqa: BLE001 - the slot lease expires on its own
+            log.debug("sse_slot_release_failed")
 
-    return StreamingResponse(
-        body(),
+    try:
+        await pubsub.subscribe(ui_channel(tenant_id), notify_channel(tenant_id))
+    except BaseException:
+        with anyio.CancelScope(shield=True):
+            await close()
+        raise
+
+    return _LeasedStreamingResponse(
+        event_stream(request, viewer, ctx.principal, pubsub),
+        on_close=close,
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )

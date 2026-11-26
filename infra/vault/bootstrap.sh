@@ -2,7 +2,7 @@
 # DEVELOPMENT ONLY Vault bootstrap (ADR-0009). Refuses to run outside ENV=development.
 # - enables AppRole + Transit, writes one least-privilege policy per service
 # - issues AppRole credentials into the shared /approle volume (tmpfs-like, never committed)
-# - seeds *fake* platform provider secrets so local fakes can authenticate
+# - safe to re-run: Vault storage is persistent, so every step checks before it creates
 set -eu
 [ "${ENV:-}" = "development" ] || { echo "refusing: ENV must be development"; exit 1; }
 : "${VAULT_ADDR:?}"; : "${VAULT_TOKEN:?}"
@@ -13,8 +13,8 @@ until vault status >/dev/null 2>&1; do sleep 1; done
 vault auth list | grep -q '^approle/' || vault auth enable approle
 vault secrets list | grep -q '^transit/' || vault secrets enable transit
 vault secrets list | grep -q '^secret/' || vault secrets enable -path=secret kv-v2
-vault write -f transit/keys/bff-session >/dev/null
-vault write -f transit/keys/webhook-signing >/dev/null
+vault read transit/keys/bff-session >/dev/null 2>&1 || vault write -f transit/keys/bff-session >/dev/null
+vault read transit/keys/webhook-signing >/dev/null 2>&1 || vault write -f transit/keys/webhook-signing >/dev/null
 vault audit list 2>/dev/null | grep -q '^file/' || vault audit enable file file_path=stdout >/dev/null || true
 
 # Policy template: read own platform secrets + listed tenant provider paths.
@@ -81,14 +81,8 @@ write_policy audit-service
 write_policy web-bff 'path "transit/encrypt/bff-session" { capabilities = ["update"] }' \
   'path "transit/decrypt/bff-session" { capabilities = ["update"] }'
 
-# Fake platform credentials for the local fake providers (clearly labelled; not real secrets).
-vault kv put "secret/${E}/platform/ai-gateway/anthropic" api_key="fake-anthropic-key-dev-only" >/dev/null
-vault kv put "secret/${E}/platform/voice-service/deepgram" api_key="fake-deepgram-key-dev-only" >/dev/null
-vault kv put "secret/${E}/platform/voice-service/elevenlabs" api_key="fake-elevenlabs-key-dev-only" >/dev/null
-vault kv put "secret/${E}/platform/email-service/ses" region="us-east-1" access_key_id="FAKEDEVONLY" \
-  secret_access_key="fake-ses-secret-dev-only" >/dev/null
-vault kv put "secret/${E}/platform/notification-service/ses" region="us-east-1" access_key_id="FAKEDEVONLY" \
-  secret_access_key="fake-ses-secret-dev-only" >/dev/null
+# Provider keys (Anthropic, Deepgram, ElevenLabs, SES, ...) are NOT seeded: add them in the UI
+# (Platform admin -> Secrets) or with scripts/vault_put_platform_secret.sh. Vault storage is persistent.
 # Broker operations identity used by the platform console (queue view, audited dead-letter replay).
 vault kv put "secret/${E}/platform/tenant-service/rabbitmq-ops" username="nexus-ops" \
   password="${NEXUS_BROKER_OPS_PASSWORD:?NEXUS_BROKER_OPS_PASSWORD must be set (dev only)}" >/dev/null

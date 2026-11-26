@@ -930,6 +930,7 @@
       ]
     }
   ],
+  "browserFlow": "browser-step-up",
   "authenticatorConfig": [
     {
       "alias": "loa-1-config",

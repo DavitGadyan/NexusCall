@@ -58,7 +58,7 @@ TASK_QUEUES: dict[str, str] = {
 
 
 def main() -> int:
-    with httpx.Client(auth=ADMIN, timeout=5.0) as c:
+    with httpx.Client(auth=ADMIN, timeout=30.0) as c:
         for _ in range(60):
             try:
                 if c.get(f"{API}/overview").status_code == 200:

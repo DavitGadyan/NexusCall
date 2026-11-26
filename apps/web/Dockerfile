@@ -20,6 +20,6 @@ COPY --from=build --chown=root:root /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=root:root /repo/apps/web/.next/static ./apps/web/.next/static
 USER 10001:10001
 EXPOSE 3000
-HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=5 \
+HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "apps/web/server.js"]

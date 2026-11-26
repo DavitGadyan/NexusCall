@@ -86,11 +86,10 @@ ROUTES = {
 }
 
 
-MIDDLEWARES = "[secure-headers, rate-limit, body-limit]"
-LARGE_UPLOADS = {
-    "crm-service": ["/api/v1/imports"],
-    "ai-agent-service": ["/api/v1/ai/knowledge/sources"],
-}
+# No Traefik `buffering` middleware: it also buffers responses, which turns empty responses (303 without
+# a body, 204) into 500 and breaks streaming. Body size limits are enforced by every service
+# (nexus_core BodySizeLimitMiddleware: 1 MiB default, 11 MiB for upload services) and by the web BFF.
+MIDDLEWARES = "[secure-headers, rate-limit]"
 
 
 def render() -> str:
@@ -133,17 +132,6 @@ def render() -> str:
         "      middlewares: [secure-headers, rate-limit]",
         "      entryPoints: [web, internal]",
     ]
-    # File uploads (10 MB files + multipart overhead) get their own, slightly larger body limit.
-    for svc, prefixes in LARGE_UPLOADS.items():
-        rule = " || ".join(f"PathPrefix(`{p}`)" for p in prefixes)
-        out += [
-            f"    {svc}-uploads:",
-            f'      rule: "{rule}"',
-            "      priority: 200",
-            f"      service: {svc}",
-            "      middlewares: [secure-headers, rate-limit, body-limit-uploads]",
-            "      entryPoints: [web, internal]",
-        ]
     out += ["  services:", "    web:", "      loadBalancer:", '        servers: [{ url: "http://web:3000" }]']
     for svc in ROUTES:
         out += [f"    {svc}:", "      loadBalancer:", f'        servers: [{{ url: "http://{svc}:8000" }}]']
@@ -158,10 +146,6 @@ def render() -> str:
         '        customResponseHeaders: { X-Powered-By: "", Server: "" }',
         "    rate-limit:",
         "      rateLimit: { average: 100, burst: 200, period: 1s }",
-        "    body-limit:",
-        "      buffering: { maxRequestBodyBytes: 10485760, memRequestBodyBytes: 2097152 }",
-        "    body-limit-uploads:",
-        "      buffering: { maxRequestBodyBytes: 11534336, memRequestBodyBytes: 2097152 }",
     ]
     return "\n".join(out) + "\n"
 

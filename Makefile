@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PROFILE ?= core
 PROFILES := $(foreach p,$(PROFILE),--profile $(p))
 COMPOSE := docker compose
-ALL_PROFILES := --profile core --profile crm --profile calls --profile email --profile platform --profile fakes
+ALL_PROFILES := --profile core --profile crm --profile calls --profile email --profile platform
 
 .PHONY: help env generate build up up-all down logs ps migrate seed lint typecheck test test-unit test-integration \
         test-web e2e openapi clean

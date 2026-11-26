@@ -25,3 +25,6 @@ apps/web/playwright-report/
 *.tsbuildinfo
 # agent worktrees (local only)
 .claude/worktrees/
+
+# Browser automation output (local only)
+.playwright-mcp/

@@ -6,7 +6,7 @@ FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 FROM ${PYTHON_IMAGE} AS build
 COPY --from=uv /uv /usr/local/bin/uv
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+ENV UV_COMPILE_BYTECODE=1 UV_COMPILE_BYTECODE_TIMEOUT=600 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY packages ./packages
@@ -23,7 +23,7 @@ COPY --chown=root:root services/call_service/alembic.ini services/call_service/a
 COPY --chown=root:root services/call_service/migrations services/call_service/migrations
 USER 10001:10001
 EXPOSE 8000
-HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=5 \
+HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
   CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
 STOPSIGNAL SIGTERM
 CMD ["uvicorn", "call_service.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*", "--no-server-header"]

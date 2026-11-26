@@ -310,6 +310,10 @@ def realm() -> dict:
         "clients": clients,
         "users": users,
         "authenticationFlows": loa_flow(),
+        # The realm browser flow must be the step-up flow too: Keycloak reads LoA conditions from the
+        # realm's browser flow (AcrStore). With the built-in flow there, a sign-in on top of an existing
+        # SSO session fails ("No condition found for level '1'") and shows "Invalid username or password".
+        "browserFlow": "browser-step-up",
         "authenticatorConfig": [
             {"alias": "loa-1-config", "config": {"loa-condition-level": "1", "loa-max-age": "36000"}},
             {"alias": "loa-2-config", "config": {"loa-condition-level": "2", "loa-max-age": "300"}},

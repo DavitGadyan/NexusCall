@@ -5,6 +5,7 @@ import time
 import uuid
 from types import SimpleNamespace
 
+import anyio
 import httpx
 import pytest
 import pytest_asyncio
@@ -66,6 +67,28 @@ async def test_concurrency_slots_are_bounded_idempotent_and_expire(redis):
     assert await acquire_slot(redis, key2, "dead", max_slots=1, ttl_seconds=1)
     await asyncio.sleep(1.1)
     assert await acquire_slot(redis, key2, "alive", max_slots=1, ttl_seconds=60)
+
+
+async def test_slot_is_released_when_the_holder_is_cancelled(redis):
+    """A client that disconnects from a stream makes Starlette cancel the handler's anyio task group.
+    anyio cancellation is level-triggered, so the release in `finally` must be shielded to run at all."""
+    key = f"slots:{uuid.uuid4()}"
+    started = anyio.Event()
+
+    async def holder() -> None:
+        assert await acquire_slot(redis, key, "stream-1", max_slots=1, ttl_seconds=600)
+        try:
+            started.set()
+            await anyio.sleep(3600)
+        finally:
+            await release_slot(redis, key, "stream-1")
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(holder)
+        await started.wait()
+        tg.cancel_scope.cancel()
+    assert await slots_in_use(redis, key) == 0
+    assert await acquire_slot(redis, key, "stream-2", max_slots=1, ttl_seconds=600)
 
 
 async def test_concurrent_acquire_never_exceeds_limit(redis):

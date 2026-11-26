@@ -192,5 +192,5 @@ variable "prometheus_retention" {
 
 variable "clamav_image" {
   type    = string
-  default = "clamav/clamav:1.4.1"
+  default = "clamav/clamav:1.4.7"
 }
