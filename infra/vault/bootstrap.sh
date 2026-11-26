@@ -54,12 +54,26 @@ write_policy tool-execution "path \"${T}/google_calendar/*\" { capabilities = [\
 write_policy booking-service "path \"${T}/google_calendar/*\" { capabilities = [\"read\"] }"
 write_policy email-service "path \"${T}/ses/*\" { capabilities = [\"read\"] }"
 write_policy email-inbox-service
+# Platform connections integration-service may manage: exactly the (owning service, provider) pairs in
+# services/integration_service/.../providers/catalogue.py, plus the "-next" staging copy used by rotation.
+# Never a wildcard: other platform secrets (stream-token signing keys, MCP server credentials) stay out of reach.
+# tests/security/test_vault_policies.py keeps this list and the catalogue in step.
+INTEGRATION_PLATFORM_PAIRS="ai-gateway/anthropic ai-gateway/voyage voice-service/deepgram voice-service/elevenlabs voice-service/twilio call-service/twilio email-service/ses email-inbox-service/ses notification-service/ses integration-service/google_oauth_client integration-service/hubspot_oauth_client"
+INTEGRATION_PLATFORM_PATHS=""
+for pair in ${INTEGRATION_PLATFORM_PAIRS}; do
+  for name in "${pair}" "${pair}-next"; do
+    INTEGRATION_PLATFORM_PATHS="${INTEGRATION_PLATFORM_PATHS}
+path \"secret/data/${E}/platform/${name}\" { capabilities = [\"create\", \"update\", \"read\", \"delete\"] }
+path \"secret/metadata/${E}/platform/${name}\" { capabilities = [\"read\", \"delete\"] }"
+  done
+done
 # integration-service is the ONLY writer of tenant provider secrets.
 write_policy integration-service \
   "path \"${T}/*\" { capabilities = [\"create\", \"update\", \"read\", \"delete\"] }" \
   "path \"secret/data/${E}/tenants/+/+/*\" { capabilities = [\"create\", \"update\", \"read\", \"delete\"] }" \
   "path \"secret/metadata/${E}/tenants/+/+/*\" { capabilities = [\"read\", \"delete\", \"list\"] }" \
   "path \"${M}/*\" { capabilities = [\"read\", \"list\"] }" \
+  "${INTEGRATION_PLATFORM_PATHS}" \
   'path "transit/sign/webhook-signing" { capabilities = ["update"] }'
 write_policy notification-service
 write_policy analytics-service

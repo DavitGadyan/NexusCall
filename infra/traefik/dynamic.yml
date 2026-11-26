@@ -80,7 +80,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web, internal]
     integration-service:
-      rule: "PathPrefix(`/api/v1/integrations`) || PathPrefix(`/api/v1/webhooks/endpoints`) || PathPrefix(`/api/v1/platform/secrets`) || PathPrefix(`/api/v1/platform/integrations`) || PathPrefix(`/oauth/callback`)"
+      rule: "PathPrefix(`/api/v1/integrations`) || PathPrefix(`/api/v1/webhooks/endpoints`) || PathPrefix(`/api/v1/platform/secrets`) || PathPrefix(`/api/v1/platform/integrations`) || PathPrefix(`/oauth/callback`) || PathPrefix(`/webhooks/hubspot`)"
       priority: 100
       service: integration-service
       middlewares: [secure-headers, rate-limit, body-limit]

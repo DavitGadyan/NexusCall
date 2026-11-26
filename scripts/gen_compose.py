@@ -33,7 +33,8 @@ SERVICES: list[tuple[str, str, str, list[str], dict[str, str]]] = [
     ("booking-service", "booking_service", "booking", ["calls"], {}),
     ("email-service", "email_service", "email", ["email"], {"TRANSACTIONAL_QUEUE": "emails.transactional_send"}),
     ("email-inbox-service", "email_inbox_service", "inbox", ["email"], {}),
-    ("integration-service", "integration_service", "integration", ["platform"], {}),
+    ("integration-service", "integration_service", "integration", ["platform"],
+     {"INTEGRATION_HMAC_KEY": "${INTEGRATION_HMAC_KEY}"}),
     ("analytics-service", "analytics_service", "analytics", ["platform"], {}),
 ]
 
@@ -71,6 +72,9 @@ WORKERS: list[tuple[str, str, list[str], list[str]]] = [
     ("worker-ai-agent", "ai-agent-service",
      ["celery", "-A", "ai_agent_service.worker", "worker", "-Q", "ai.knowledge_ingest", "--concurrency", "2",
       "--without-heartbeat", "--without-gossip", "--without-mingle"], ["crm", "calls", "email"]),
+    ("worker-integrations", "integration-service",
+     ["celery", "-A", "integration_service.worker", "worker", "-Q", "integrations.webhooks", "--concurrency", "4",
+      "--without-heartbeat", "--without-gossip", "--without-mingle"], ["platform"]),
     ("worker-analytics", "analytics-service",
      ["celery", "-A", "analytics_service.worker:celery_app", "worker", "-Q", "analytics.aggregate", "--concurrency",
       "2", "--without-heartbeat", "--without-gossip", "--without-mingle"], ["platform"]),
@@ -252,6 +256,7 @@ def compose() -> dict:
                 "VAULT_TOKEN": "${VAULT_DEV_ROOT_TOKEN}",
                 "NEXUS_BROKER_OPS_PASSWORD": "${NEXUS_BROKER_OPS_PASSWORD}",
                 "STREAM_TOKEN_SECRET": "${STREAM_TOKEN_SECRET}",
+                "INTEGRATION_HMAC_KEY": "${INTEGRATION_HMAC_KEY}",
                 "ENV": "${ENV:-development}",
             },
             "volumes": ["./infra/vault/bootstrap.sh:/bootstrap.sh:ro", "approle:/approle"],

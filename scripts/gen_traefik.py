@@ -77,6 +77,7 @@ ROUTES = {
         "/api/v1/platform/secrets",
         "/api/v1/platform/integrations",
         "/oauth/callback",
+        "/webhooks/hubspot",
     ],
     "notification-service": ["/api/v1/notifications"],
     "analytics-service": ["/api/v1/analytics", "/api/v1/exports", "/api/v1/platform/usage"],
