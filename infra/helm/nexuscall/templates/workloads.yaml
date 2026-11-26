@@ -94,6 +94,8 @@ spec:
             - name: NEXUS_OIDC_INTERNAL_BASE
               value: {{ printf "%s/realms/%s" (trimSuffix "/" $root.Values.global.oidc.internalUrl) $root.Values.global.oidc.realm | quote }}
             - { name: NEXUS_API_INTERNAL_URL, value: {{ $root.Values.web.apiInternalUrl | quote }} }
+            # CSP media-src: call recordings play from presigned object-store URLs on this origin.
+            - { name: NEXUS_MEDIA_ORIGIN, value: {{ $root.Values.global.objectStore.publicEndpointUrl | quote }} }
             - { name: PORT, value: {{ $c.port | quote }} }
             {{- else }}
             - { name: SERVICE_NAME, value: {{ $c.identity | quote }} }

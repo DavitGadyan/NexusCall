@@ -5,7 +5,7 @@
  * - authenticated pages are never cached
  */
 import { type NextRequest, NextResponse } from "next/server";
-import { buildCsp, generateNonce, isProtectedPath, NO_STORE_HEADERS, SESSION_COOKIE_NAMES } from "@/lib/security/csp";
+import { buildCsp, generateNonce, isProtectedPath, NO_STORE_HEADERS, SESSION_COOKIE_NAMES, mediaOrigin } from "@/lib/security/csp";
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -20,7 +20,11 @@ export function middleware(req: NextRequest) {
   }
 
   const nonce = generateNonce();
-  const csp = buildCsp(nonce, { dev: process.env.NODE_ENV === "development", https });
+  const csp = buildCsp(nonce, {
+    dev: process.env.NODE_ENV === "development",
+    https,
+    mediaOrigin: mediaOrigin(process.env.NEXUS_MEDIA_ORIGIN),
+  });
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);

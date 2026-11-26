@@ -1,7 +1,23 @@
 /**
  * Content-Security-Policy and response hardening shared by the middleware (Edge runtime safe: no Node APIs).
  */
-export function buildCsp(nonce: string, opts: { dev: boolean; https: boolean }): string {
+/**
+ * Normalises a configured media origin (e.g. the public object-store endpoint) to `scheme://host[:port]`.
+ * Anything that is not a plain http(s) origin is ignored, so a bad value can never widen the policy.
+ */
+export function mediaOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const u = new URL(value);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    if (u.username || u.password) return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function buildCsp(nonce: string, opts: { dev: boolean; https: boolean; mediaOrigin?: string | null }): string {
   const scriptSrc = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
   // React Refresh needs eval in `next dev` only. Never in a production build.
   if (opts.dev) scriptSrc.push("'unsafe-eval'");
@@ -13,6 +29,8 @@ export function buildCsp(nonce: string, opts: { dev: boolean; https: boolean }):
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     `connect-src 'self'${opts.dev ? " ws:" : ""}`,
+    // Call recordings: same origin, or presigned URLs on the configured object-store origin only.
+    `media-src 'self'${opts.mediaOrigin ? ` ${opts.mediaOrigin}` : ""}`,
     "frame-src 'self'",
     "frame-ancestors 'none'",
     "form-action 'self'",

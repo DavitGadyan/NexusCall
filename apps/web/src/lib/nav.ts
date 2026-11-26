@@ -11,6 +11,7 @@ export const workspaceNav: NavSection[] = [
     { label: "Segments", href: "/app/crm/segments", permission: "campaigns:read" },
     { label: "Call campaigns", href: "/app/campaigns/calls", permission: "campaigns:read" },
     { label: "Email campaigns", href: "/app/campaigns/email", permission: "emails:campaigns:manage" },
+    { label: "Email templates", href: "/app/campaigns/email/templates", permission: "emails:campaigns:manage" },
   ]},
   { label: "Conversations", items: [
     { label: "Live calls", href: "/app/calls/live", permission: "calls:read" },

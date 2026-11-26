@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsp, generateNonce, isProtectedPath } from "./csp";
+import { buildCsp, generateNonce, isProtectedPath, mediaOrigin } from "./csp";
 
 describe("buildCsp", () => {
   const prod = buildCsp("abc123==", { dev: false, https: true });
@@ -45,5 +45,20 @@ describe("isProtectedPath", () => {
     ["/api/health", false],
   ])("%s -> %s", (path, expected) => {
     expect(isProtectedPath(path)).toBe(expected);
+  });
+});
+
+describe("media-src", () => {
+  it("allows only same-origin media by default", () => {
+    expect(buildCsp("n", { dev: false, https: true })).toContain("media-src 'self';");
+  });
+  it("adds the configured object-store origin, normalised to scheme://host[:port]", () => {
+    const csp = buildCsp("n", { dev: false, https: true, mediaOrigin: mediaOrigin("https://s3.example.com/recordings?x=1") });
+    expect(csp).toContain("media-src 'self' https://s3.example.com;");
+  });
+  it("ignores values that are not plain http(s) origins", () => {
+    for (const bad of ["javascript:alert(1)", "*", "https://u:p@s3.example.com", "not a url", "data:,x", ""]) {
+      expect(mediaOrigin(bad)).toBeNull();
+    }
   });
 });

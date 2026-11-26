@@ -386,6 +386,8 @@ def compose() -> dict:
                 "NEXUS_OIDC_INTERNAL_BASE": "http://keycloak:8080/realms/nexus",
                 # The BFF proxies /api/v1/* through the gateway on the internal network.
                 "NEXUS_API_INTERNAL_URL": "http://traefik:8081",
+                # CSP media-src: recordings play from presigned object-store URLs on this origin.
+                "NEXUS_MEDIA_ORIGIN": "http://localhost:${NEXUS_PORT_S3:-47900}",
                 "REDIS_URL": "redis://:${NEXUS_REDIS_DEV_PASSWORD}@redis:6379/1",
                 **{f"SVC_{n.replace('-', '_').upper()}_URL": f"http://{n}:8000" for n, *_ in SERVICES},
             },
