@@ -1095,9 +1095,13 @@ async def run_rls_scan(request: Request, ctx: perm("platform:security:read")) ->
     settings = request.app.state.settings
     token = await request.app.state.service_token()
 
+    # At most 4 services at a time: each one opens a fresh inspector connection and reads the catalog,
+    # and 16 simultaneous connection bursts overloaded a small Postgres instance.
+    limit = asyncio.Semaphore(4)
+
     async def one(svc: str) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=6.0) as c:
+            async with limit, httpx.AsyncClient(timeout=20.0) as c:
                 resp = await c.get(
                     f"http://{svc}:8000/internal/v1/rls/coverage", headers={"Authorization": f"Bearer {token}"}
                 )

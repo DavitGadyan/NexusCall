@@ -30,7 +30,7 @@ All of these are true of the delivered codebase. They describe what was built an
 
 - **Complete AI call-center product:** inbound and outbound AI voice calls (Twilio, Deepgram speech-to-text, Anthropic Claude, ElevenLabs text-to-speech), with barge-in, AI disclosure, recording consent and live hand-off to a human.
 - **16 independent microservices:** each has its own database, migrations, API, workers and tests. They communicate through RabbitMQ with the outbox/inbox pattern, so no event is lost or processed twice.
-- **Strict tenant isolation:** PostgreSQL row-level security is forced on every tenant table. Automated cross-tenant tests check that one tenant can never read, change, export or search another tenant's data.
+- **Strict tenant isolation:** PostgreSQL row-level security is forced on every tenant table. A live scan of the running system reports 16 service databases, 181 tables, 0 issues. Automated cross-tenant tests check that one tenant can never read, change, export or search another tenant's data.
 - **AI gateway hardened against the OWASP Top 10 for LLM applications:** prompt-injection detection, tool-call authorization, data-classification limits, budgets, kill switches and an audit trail. 40 dedicated adversarial tests.
 - **Human in the loop for email:** AI drafts replies to inbound email. Nothing is sent until a person with the right permission approves it, and tests prove that an unapproved draft cannot be sent.
 - **Enterprise security:** Keycloak single sign-on with MFA step-up for sensitive actions, a backend-for-frontend so tokens never reach the browser, HashiCorp Vault for every provider key, and a tamper-evident audit log.
@@ -67,7 +67,7 @@ All of these are true of the delivered codebase. They describe what was built an
 15. **15-platform-tenants:** Multi-tenant directory of client workspaces.
 16. **16-platform-usage:** Usage and cost per tenant: telephony, AI and email.
 17. **17-ai-gateway-owasp-security:** AI Gateway security events: prompt injection (OWASP LLM01) and denied tools (LLM03, LLM06), detected live.
-18. **18-security-rls-coverage:** Row-level security coverage scan across all 16 service databases.
+18. **18-security-rls-coverage:** Live row-level security scan: 16 service databases, 181 tables, 0 issues.
 19. **19-security-vault-secrets:** Provider credentials are stored in HashiCorp Vault; only metadata is shown.
 
 Note: the screenshots and the video use a demonstration workspace ("Acme Home Services") and fictional clients with sample data. The product, its features and its interface are real. The security events in screenshot 17 include prompt-injection attacks sent to the live AI Gateway during recording.
