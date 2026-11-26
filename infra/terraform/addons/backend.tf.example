@@ -1,0 +1,28 @@
+# Remote state example (S3-compatible, with native lock file; Terraform >= 1.10).
+# cp backend.tf.example backend.tf, then: terraform init -backend-config=backend.hcl
+# Keep one state per environment (key) and never commit backend.hcl if it carries credentials;
+# prefer AWS_* / workload identity environment variables.
+terraform {
+  backend "s3" {
+    bucket       = "nexuscall-terraform-state"
+    key          = "addons/production.tfstate"
+    region       = "eu-central-1"
+    encrypt      = true
+    use_lockfile = true
+    # For a non-AWS S3-compatible store (Ceph RGW, SeaweedFS, MinIO):
+    # endpoints                   = { s3 = "https://s3.internal.example.com" }
+    # use_path_style              = true
+    # skip_credentials_validation = true
+    # skip_region_validation      = true
+    # skip_requesting_account_id  = true
+  }
+}
+
+# Alternative: state in a Kubernetes Secret of a management cluster.
+# terraform {
+#   backend "kubernetes" {
+#     secret_suffix = "nexuscall-addons-production"
+#     namespace     = "terraform-state"
+#     config_path   = "~/.kube/management"
+#   }
+# }

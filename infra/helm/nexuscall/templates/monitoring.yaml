@@ -1,0 +1,84 @@
+{{- $root := . -}}
+{{- if .Values.namespace.create }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    pod-security.kubernetes.io/enforce: {{ .Values.namespace.podSecurity }}
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+{{- end }}
+{{- if .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nexuscall-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nexuscall
+      nexuscall.io/kind: service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.metrics.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nexuscall
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+spec:
+  groups:
+    - name: nexuscall.services
+      rules:
+        - alert: NexusServiceHighErrorRate
+          expr: |
+            sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum by (service) (rate(http_requests_total[5m])), 1) > 0.05
+          for: 10m
+          labels: { severity: page }
+          annotations:
+            summary: "{{ "{{ $labels.service }}" }} returns more than 5% 5xx"
+            runbook: docs/runbooks/provider-outage.md
+        - alert: NexusServiceSlow
+          expr: |
+            histogram_quantile(0.95, sum by (service, le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+          for: 15m
+          labels: { severity: ticket }
+          annotations:
+            summary: "{{ "{{ $labels.service }}" }} p95 latency above 1 s"
+        - alert: NexusPodsNotReady
+          expr: |
+            sum by (deployment) (kube_deployment_status_replicas_unavailable{namespace="{{ .Release.Namespace }}"}) > 0
+          for: 15m
+          labels: { severity: page }
+          annotations:
+            summary: "{{ "{{ $labels.deployment }}" }} has unavailable replicas"
+    - name: nexuscall.queues
+      rules:
+        - alert: NexusDeadLetterQueueNotEmpty
+          expr: sum by (queue) (rabbitmq_detailed_queue_messages{queue=~".*\\.dlq"}) > 0
+          for: 5m
+          labels: { severity: ticket }
+          annotations:
+            summary: "{{ "{{ $labels.queue }}" }} holds dead-lettered jobs"
+            runbook: docs/runbooks/dlq-handling.md
+        - alert: NexusTaskQueueBacklog
+          expr: sum by (queue) (rabbitmq_detailed_queue_messages_ready{queue!~".*\\.dlq"}) > 5000
+          for: 15m
+          labels: { severity: page }
+          annotations:
+            summary: "{{ "{{ $labels.queue }}" }} backlog above 5000"
+{{- end }}

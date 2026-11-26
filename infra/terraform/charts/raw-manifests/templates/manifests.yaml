@@ -1,0 +1,9 @@
+{{- range $m := .Values.manifests }}
+{{- range $doc := regexSplit "(?m)^---[ \t]*$" $m -1 }}
+{{- $body := trim $doc }}
+{{- if and $body (not (regexMatch "(?m)^kind:[ \t]*Namespace[ \t]*$" $body)) }}
+---
+{{ $body }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,33 @@
+ui = false
+disable_mlock = true
+cluster_name = "nexus-vault"
+
+listener "tcp" {
+  address         = "[::]:8200"
+  cluster_address = "[::]:8201"
+  tls_cert_file   = "/vault/userconfig/vault-server-tls/tls.crt"
+  tls_key_file    = "/vault/userconfig/vault-server-tls/tls.key"
+  tls_min_version = "tls12"
+  telemetry {
+    unauthenticated_metrics_access = true
+  }
+}
+
+storage "raft" {
+  path = "/vault/data"
+%{ for i in range(replicas) ~}
+  retry_join {
+    leader_api_addr         = "https://vault-${i}.vault-internal.${namespace}.svc:8200"
+    leader_ca_cert_file     = "/vault/userconfig/vault-server-tls/ca.crt"
+  }
+%{ endfor ~}
+}
+
+service_registration "kubernetes" {}
+
+telemetry {
+  prometheus_retention_time = "30s"
+  disable_hostname          = true
+}
+
+${seal_stanza}

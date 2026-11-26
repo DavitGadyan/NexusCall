@@ -1,0 +1,56 @@
+# EXAMPLE staging overrides. Replace every example.com / your-org value. No secrets belong here:
+# credentials live in Vault (docs/DEPLOYMENT.md "Secrets bootstrap").
+#   helm upgrade --install nexuscall infra/helm/nexuscall -n nexuscall \
+#     -f infra/helm/nexuscall/values-staging.yaml --set global.image.tag=<release>
+global:
+  env: staging
+  publicBaseUrl: https://staging.nexuscall.example.com
+  publicHost: staging.nexuscall.example.com
+  image:
+    registry: ghcr.io/your-org/nexuscall
+    tag: "0.1.0"
+  oidc:
+    issuer: https://id.staging.nexuscall.example.com/realms/nexus
+  objectStore:
+    publicEndpointUrl: https://files.staging.nexuscall.example.com
+
+ingress:
+  tls:
+    issuerRef: { name: letsencrypt-staging, kind: ClusterIssuer }
+
+# Smaller footprint: one replica per service, HPA up to 3.
+services:
+  tenant-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  audit-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  crm-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  campaign-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  ai-agent-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  mcp-registry: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  tool-execution: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  booking-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  email-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  email-inbox-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  integration-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  analytics-service: { replicas: 1, hpa: { minReplicas: 1, maxReplicas: 3 } }
+  notification-service:
+    replicas: 1
+    hpa: { minReplicas: 1, maxReplicas: 3 }
+    env:
+      NOTIFICATION_FROM_ADDRESS: no-reply@staging.nexuscall.example.com
+
+workerOverrides:
+  worker-calls: { replicas: 2 }
+  worker-email-send: { replicas: 1 }
+  worker-analytics: { replicas: 1 }
+  worker-imports: { replicas: 1 }
+
+metrics:
+  serviceMonitor: { enabled: true }
+  prometheusRule: { enabled: true }
+
+# Example canary while validating a release candidate of the AI gateway (remove after promotion).
+canary:
+  ai-gateway:
+    tag: "0.1.1-rc1"
+    replicas: 1
+    weight: 10

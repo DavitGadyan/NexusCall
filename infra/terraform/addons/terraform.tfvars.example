@@ -1,0 +1,17 @@
+# Copy to <env>.tfvars (not committed if it names internal hosts you consider sensitive). No secrets here.
+kube_context                = "nexuscall-production"
+environment                 = "production"
+public_host                 = "app.nexuscall.example.com"
+identity_host               = "id.nexuscall.example.com"
+acme_email                  = "platform-team@example.com"
+pod_cidr                    = "10.244.0.0/16"
+storage_class               = "fast-ssd"
+postgres_backup_destination = "s3://nexuscall-pg-backups/production"
+postgres_backup_endpoint    = ""          # set for a non-AWS S3-compatible store
+object_storage_mode         = "seaweedfs" # or "external" + external_s3_endpoint
+# vault_seal_stanza = <<-EOT
+#   seal "awskms" {
+#     region     = "eu-central-1"
+#     kms_key_id = "alias/nexuscall-vault-unseal"
+#   }
+# EOT

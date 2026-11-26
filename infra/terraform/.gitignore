@@ -1,0 +1,9 @@
+# Provider downloads and local state never enter git. Lock files (.terraform.lock.hcl) are committed.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.tf
+backend.hcl
+crash.log

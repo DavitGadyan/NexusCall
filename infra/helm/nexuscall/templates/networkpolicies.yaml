@@ -1,0 +1,133 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /*
+Default-deny for the namespace, DNS for everyone, then one policy per component:
+  ingress  from Traefik (components with edge routes), from the components that list it in dependsOn
+           (SERVICE_MAP §2, checked against the code by infra/helm/generate.py) and from Prometheus;
+  egress   to its dependsOn, to the infrastructure it uses (global.endpoints), and to the public
+           internet on 443 only when it calls providers (externalEgress).
+*/ -}}
+{{- $root := . -}}
+{{- $g := .Values.global -}}
+{{- $components := (include "nexuscall.components" . | fromYaml).items -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- include "nexuscall.endpointPeer" (dict "ep" $g.endpoints.dns) | nindent 8 }}
+      ports:
+        {{- toYaml $g.endpoints.dns.ports | nindent 8 }}
+{{- range $c := $components }}
+{{- $callers := list }}
+{{- range $o := $components }}
+{{- if has $c.name (default list $o.dependsOn) }}{{- $callers = append $callers $o.name }}{{- end }}
+{{- end }}
+{{- $svcDeps := list }}
+{{- $webDep := false }}
+{{- range $d := (default list $c.dependsOn) }}
+{{- if eq $d "web" }}{{- $webDep = true }}{{- else }}{{- $svcDeps = append $svcDeps $d }}{{- end }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $c.name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" "stable") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nexuscall
+      app.kubernetes.io/component: {{ $c.name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- if ne $c.kind "worker" }}
+    {{- if $c.public }}
+    - from:
+        {{- include "nexuscall.endpointPeer" (dict "ep" $g.endpoints.traefik) | nindent 8 }}
+      ports:
+        - { port: {{ $c.port }}, protocol: TCP }
+    {{- end }}
+    {{- if $callers }}
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [nexuscall] }
+              - key: app.kubernetes.io/component
+                operator: In
+                values: {{ $callers | uniq | toJson }}
+      ports:
+        - { port: {{ $c.port }}, protocol: TCP }
+    {{- end }}
+    {{- if eq $c.kind "service" }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $g.endpoints.prometheus.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $g.endpoints.prometheus.podLabels | nindent 14 }}
+      ports:
+        - { port: {{ $c.port }}, protocol: TCP }
+    {{- end }}
+    {{- end }}
+  egress:
+    {{- if $svcDeps }}
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [nexuscall] }
+              - key: app.kubernetes.io/component
+                operator: In
+                values: {{ $svcDeps | toJson }}
+      ports:
+        - { port: 8000, protocol: TCP }
+    {{- end }}
+    {{- if $webDep }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nexuscall
+              app.kubernetes.io/component: web
+      ports:
+        - { port: {{ $root.Values.web.port }}, protocol: TCP }
+    {{- end }}
+    {{- range $key := $c.infra }}
+    {{- $ep := get $g.endpoints $key }}
+    {{- if not $ep }}{{- fail (printf "%s: unknown infra endpoint %q (global.endpoints)" $c.name $key) }}{{- end }}
+    - to:
+        {{- include "nexuscall.endpointPeer" (dict "ep" $ep) | nindent 8 }}
+      ports:
+        {{- range $ep.ports }}
+        - { port: {{ .port }}, protocol: {{ .protocol | default "TCP" }} }
+        {{- end }}
+    {{- end }}
+    {{- if $c.externalEgress }}
+    - to:
+        - ipBlock:
+            cidr: {{ $g.externalEgress.cidr }}
+            except:
+              {{- toYaml $g.externalEgress.except | nindent 14 }}
+      ports:
+        {{- range $g.externalEgress.ports }}
+        - { port: {{ . }}, protocol: TCP }
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,37 @@
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors/PodMonitors/PrometheusRules from every namespace (NexusCall chart, CNPG,
+    # RabbitMQ, Traefik, Vault), not only those labelled for this release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    enableRemoteWriteReceiver: true   # the OTel collector pushes service metrics here
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits: { memory: 4Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: { storage: 100Gi }
+alertmanager:
+  enabled: true
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+  grafana.ini:
+    users: { allow_sign_up: false }
+    analytics: { reporting_enabled: false, check_for_updates: false }
+    auth.anonymous: { enabled: false }
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.nexus-observability.svc
+    - name: Tempo
+      type: tempo
+      url: http://tempo.nexus-observability.svc:3200

@@ -1,0 +1,58 @@
+{{- /*
+HorizontalPodAutoscaler (CPU by default; `hpa.metrics` replaces it, e.g. a concurrent-calls metric from
+prometheus-adapter for call/voice) and a PodDisruptionBudget for every multi-replica workload.
+*/ -}}
+{{- $root := . -}}
+{{- $components := (include "nexuscall.components" . | fromYaml).items -}}
+{{- range $c := $components }}
+{{- if $c.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $c.name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" "stable") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $c.name }}
+  minReplicas: {{ $c.hpa.minReplicas }}
+  maxReplicas: {{ $c.hpa.maxReplicas }}
+  metrics:
+    {{- if $c.hpa.metrics }}
+    {{- toYaml $c.hpa.metrics | nindent 4 }}
+    {{- else }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $c.hpa.targetCPUUtilizationPercentage }}
+    {{- end }}
+  behavior:
+    scaleDown:
+      # Long-lived calls and SSE streams: scale down slowly.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 60 }
+{{- end }}
+{{- if or $c.hpa.enabled (gt (int $c.replicas) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $c.name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" "stable") | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      {{- include "nexuscall.selectorLabels" (dict "c" $c "track" "stable") | nindent 6 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: cluster-config
+description: >-
+  Cluster-level custom resources that need the cert-manager and Traefik CRDs: issuers, the internal CA,
+  the Vault server certificate and the public Keycloak route. Installed by infra/terraform/addons.
+type: application
+version: 0.1.0

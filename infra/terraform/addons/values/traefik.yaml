@@ -1,0 +1,74 @@
+# Traefik v3 edge router (ADR-0010). Routes are IngressRoute CRDs rendered by infra/helm/nexuscall.
+deployment:
+  replicas: 3
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+providers:
+  kubernetesIngress:
+    enabled: true   # cert-manager HTTP-01 solvers only
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+  websecure:
+    port: 8443
+    exposedPort: 443
+    tls:
+      enabled: true
+  # Internal entrypoint for the web BFF -> /api/v1/* (never on the public load balancer).
+  internal:
+    port: 8081
+    exposedPort: 8081
+    protocol: TCP
+    expose:
+      default: false
+      internal: true
+service:
+  type: LoadBalancer
+  additionalServices:
+    internal:
+      type: ClusterIP
+additionalArguments:
+  - --entryPoints.web.http.redirections.entryPoint.to=websecure
+  - --entryPoints.web.http.redirections.entryPoint.scheme=https
+  - --entryPoints.web.http.redirections.entryPoint.permanent=true
+  - --entryPoints.websecure.transport.respondingTimeouts.readTimeout=60s
+  - --entryPoints.websecure.transport.respondingTimeouts.idleTimeout=180s
+  - --entryPoints.internal.transport.respondingTimeouts.readTimeout=60s
+  - --global.sendAnonymousUsage=false
+  - --global.checkNewVersion=false
+logs:
+  general:
+    format: json
+  access:
+    enabled: true
+    format: json
+    fields:
+      headers:
+        defaultmode: drop   # never log Authorization / Cookie
+        names:
+          User-Agent: keep
+          X-Request-Id: keep
+metrics:
+  prometheus:
+    addRoutersLabels: true
+    serviceMonitor:
+      enabled: true
+api:
+  dashboard: false
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile: { type: RuntimeDefault }
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }
+resources:
+  requests: { cpu: 200m, memory: 128Mi }
+  limits: { cpu: "2", memory: 512Mi }

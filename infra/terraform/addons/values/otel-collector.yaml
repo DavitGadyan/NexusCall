@@ -1,0 +1,59 @@
+# Daemonset: receives OTLP from services on each node and tails container logs for Loki.
+mode: daemonset
+image:
+  repository: otel/opentelemetry-collector-contrib
+# Service `otel-collector-opentelemetry-collector:4318` (global.otel.endpoint in the app chart);
+# node-local routing keeps spans on the same node.
+service:
+  enabled: true
+  internalTrafficPolicy: Local
+presets:
+  logsCollection:
+    enabled: true
+    includeCollectorLogs: false
+  kubernetesAttributes:
+    enabled: true
+config:
+  receivers:
+    otlp:
+      protocols:
+        http: { endpoint: "0.0.0.0:4318" }
+        grpc: { endpoint: "0.0.0.0:4317" }
+  processors:
+    batch: {}
+    memory_limiter:
+      check_interval: 1s
+      limit_percentage: 80
+      spike_limit_percentage: 20
+    # Defense in depth (mirrors infra/otel/collector.yml): drop attributes that could carry PII or credentials.
+    attributes/scrub:
+      actions:
+        - { key: http.request.header.authorization, action: delete }
+        - { key: http.request.header.cookie, action: delete }
+        - { key: db.statement, action: delete }
+        - { key: enduser.id, action: hash }
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.nexus-observability.svc:4317
+      tls: { insecure: true }
+    otlphttp/loki:
+      endpoint: http://loki-gateway.nexus-observability.svc/otlp
+    prometheusremotewrite:
+      endpoint: http://kube-prometheus-stack-prometheus.nexus-observability.svc:9090/api/v1/write
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, attributes/scrub, batch]
+        exporters: [otlp/tempo]
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [prometheusremotewrite]
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, attributes/scrub, batch]
+        exporters: [otlphttp/loki]
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 512Mi }

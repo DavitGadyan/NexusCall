@@ -1,0 +1,152 @@
+{{- /*
+RabbitMQ quorum cluster plus the broker topology, mirroring scripts/bootstrap_rabbitmq.py:
+  vhost `nexus` (default queue type quorum); exchanges nexus.events (topic), nexus.tasks (topic) and
+  nexus.dlx (topic); one quorum `<queue>.dlq` per task queue bound to nexus.dlx with routing key
+  `<queue>.dlq`; the `task-dlq` policy (delivery limit, then dead-letter).
+Task queues themselves are declared by Celery (nexus_core.celery_app.create_celery) with the same
+arguments. Service users are NOT defined here: Vault's RabbitMQ secrets engine issues them with the
+permissions from infra/terraform/generated/topology.json (infra/terraform/vault-config).
+*/ -}}
+{{- $r := .Values.rabbitmq -}}
+{{- $ref := dict "name" $r.name -}}
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: {{ $r.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ $r.replicas }}
+  {{- with $r.image }}
+  image: {{ . }}
+  {{- end }}
+  persistence:
+    storage: {{ $r.storage.size }}
+    {{- with $r.storage.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+  resources:
+    {{- toYaml $r.resources | nindent 4 }}
+  rabbitmq:
+    additionalConfig: |
+      default_queue_type = quorum
+      cluster_partition_handling = pause_minority
+      consumer_timeout = 1800000
+      vm_memory_high_watermark.relative = 0.6
+      log.console.formatter = json
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Vhost
+metadata:
+  name: vhost-{{ $r.vhost }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  name: {{ $r.vhost }}
+  defaultQueueType: quorum
+  rabbitmqClusterReference: {{ toJson $ref }}
+{{- range $x := $r.exchanges }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: exchange-{{ $x.name | replace "." "-" }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  name: {{ $x.name }}
+  type: {{ $x.type }}
+  durable: true
+  autoDelete: false
+  vhost: {{ $r.vhost }}
+  rabbitmqClusterReference: {{ toJson $ref }}
+{{- end }}
+{{- range $q := $r.deadLetterQueues }}
+{{- $k8s := $q | replace "." "-" | replace "_" "-" }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: queue-{{ $k8s }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  name: {{ $q }}
+  type: quorum
+  durable: true
+  autoDelete: false
+  vhost: {{ $r.vhost }}
+  rabbitmqClusterReference: {{ toJson $ref }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: binding-{{ $k8s }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  source: {{ $r.deadLetterExchange }}
+  destination: {{ $q }}
+  destinationType: queue
+  routingKey: {{ $q }}
+  vhost: {{ $r.vhost }}
+  rabbitmqClusterReference: {{ toJson $ref }}
+{{- end }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Policy
+metadata:
+  name: policy-{{ $r.dlqPolicy.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  name: {{ $r.dlqPolicy.name }}
+  pattern: {{ $r.dlqPolicy.pattern | quote }}
+  applyTo: queues
+  priority: 0
+  definition:
+    {{- toYaml $r.dlqPolicy.definition | nindent 4 }}
+  vhost: {{ $r.vhost }}
+  rabbitmqClusterReference: {{ toJson $ref }}
+---
+# Administrative identity for Vault's RabbitMQ secrets engine (creates/deletes the per-service users).
+# The operator generates its password into Secret `vault-admin-user-credentials`.
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: vault-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  tags: [administrator]
+  rabbitmqClusterReference: {{ toJson $ref }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: vault-admin-{{ $r.vhost }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  vhost: {{ $r.vhost }}
+  userReference: { name: vault-admin }
+  permissions: { configure: ".*", write: ".*", read: ".*" }
+  rabbitmqClusterReference: {{ toJson $ref }}
+---
+# Broker operations identity for the platform console (queue view, audited dead-letter replay); mirrors
+# the `nexus-ops` user in scripts/bootstrap_rabbitmq.py. Copy its generated credentials to Vault at
+# secret/<env>/platform/tenant-service/rabbitmq-ops (docs/DEPLOYMENT.md).
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: nexus-ops
+  namespace: {{ .Release.Namespace }}
+spec:
+  tags: [monitoring]
+  rabbitmqClusterReference: {{ toJson $ref }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: nexus-ops-{{ $r.vhost }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  vhost: {{ $r.vhost }}
+  userReference: { name: nexus-ops }
+  permissions:
+    configure: "^$"
+    write: '^(nexus\.tasks|amq\.default)$'
+    read: '^.*\.dlq$'
+  rabbitmqClusterReference: {{ toJson $ref }}

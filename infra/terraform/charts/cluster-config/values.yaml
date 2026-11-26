@@ -1,0 +1,15 @@
+certManagerNamespace: cert-manager
+acme:
+  email: ""            # ACME account e-mail; empty disables the Let's Encrypt issuers
+  ingressClass: traefik
+vault:
+  namespace: nexus-vault
+  serviceName: vault
+  replicas: 3
+keycloak:
+  namespace: nexus-identity
+  host: ""             # public host, e.g. id.example.com; empty disables the route
+  serviceName: keycloak-keycloakx-http
+  servicePort: 80
+  issuer: letsencrypt-production
+  entryPoint: websecure

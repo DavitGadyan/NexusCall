@@ -1,0 +1,118 @@
+name: deploy-checks
+# Static validation of the production deployment assets (docs/DEPLOYMENT.md). Nothing is applied anywhere.
+on:
+  pull_request:
+    paths:
+      - "infra/helm/**"
+      - "infra/terraform/**"
+      - "infra/vault/bootstrap.sh"
+      - "scripts/gen_compose.py"
+      - "scripts/gen_traefik.py"
+      - "scripts/bootstrap_rabbitmq.py"
+      - "packages/nexus_core/nexus_core/celery_app.py"
+      - "services/*/*/**.py"
+      - "tests/load/**"
+      - ".github/workflows/deploy-checks.yml"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_VERSION: v4.2.4
+  KUBECONFORM_VERSION: v0.8.0
+  TERRAFORM_VERSION: 1.15.8
+  K8S_VERSION: 1.29.0
+  CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+
+jobs:
+  generated:
+    name: generated topology is up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with: { version: "0.13.7" }
+      - run: uv sync --all-packages --frozen
+      - run: uv run python infra/helm/generate.py --check
+      - name: Fakes are never enabled in deployment manifests
+        run: "! grep -rEn 'PROVIDER_MODE[:=] *\"?fake' infra/helm infra/terraform"
+
+  helm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: "${{ env.HELM_VERSION }}" }
+      - name: Install kubeconform
+        run: |
+          curl -fsSL -o /tmp/kc.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf /tmp/kc.tgz -C /usr/local/bin kubeconform
+      - name: helm lint (staging, production)
+        run: |
+          helm lint infra/helm/nexuscall -f infra/helm/nexuscall/values-staging.yaml
+          helm lint infra/helm/nexuscall -f infra/helm/nexuscall/values-production.yaml
+      - name: helm template | kubeconform (core schemas, strict)
+        run: |
+          for env in staging production; do
+            helm template nexuscall infra/helm/nexuscall -n nexuscall -f infra/helm/nexuscall/values-$env.yaml \
+              | kubeconform -strict -ignore-missing-schemas -kubernetes-version "$K8S_VERSION" -summary
+          done
+      - name: helm template | kubeconform (with CRD schemas for Traefik, cert-manager, Prometheus)
+        run: |
+          helm template nexuscall infra/helm/nexuscall -n nexuscall -f infra/helm/nexuscall/values-staging.yaml \
+            | kubeconform -strict -kubernetes-version "$K8S_VERSION" -summary \
+                -schema-location default -schema-location "$CRD_SCHEMAS"
+      - name: Render guards refuse unsafe values
+        run: |
+          set +e
+          for args in "--set global.providerMode=fake" "--set global.env=development" \
+                      "--set services.crm-service.env.PROVIDER_MODE=fake" \
+                      "--set services.tool-execution.env.MCP_ALLOW_HTTP_PRIVATE=true" \
+                      "--set global.image.tag=latest"; do
+            if helm template x infra/helm/nexuscall -f infra/helm/nexuscall/values-staging.yaml $args >/dev/null 2>&1; then
+              echo "render unexpectedly succeeded with: $args"; exit 1
+            fi
+          done
+          echo "all guards hold"
+      - name: Terraform-installed local charts
+        run: |
+          python3 -m pip install --quiet pyyaml==6.0.2
+          python3 infra/terraform/charts/platform-data/ci_values.py infra/terraform/generated/topology.json > /tmp/pd.yaml
+          helm lint infra/terraform/charts/platform-data -f /tmp/pd.yaml
+          helm lint infra/terraform/charts/cluster-config --set acme.email=ops@example.com --set keycloak.host=id.example.com
+          helm lint infra/terraform/charts/raw-manifests
+          { helm template pd infra/terraform/charts/platform-data -n nexus-data -f /tmp/pd.yaml
+            helm template cc infra/terraform/charts/cluster-config --set acme.email=ops@example.com --set keycloak.host=id.example.com
+          } | kubeconform -strict -kubernetes-version "$K8S_VERSION" -summary -schema-location default -schema-location "$CRD_SCHEMAS"
+
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "${{ env.TERRAFORM_VERSION }}" }
+      - run: terraform fmt -check -recursive infra/terraform
+      - name: validate addons
+        working-directory: infra/terraform/addons
+        run: terraform init -backend=false -input=false && terraform validate
+      - name: validate vault-config
+        working-directory: infra/terraform/vault-config
+        run: terraform init -backend=false -input=false && terraform validate
+
+  load-scripts:
+    name: k6 scripts parse
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: k6 inspect (no execution, no network)
+        run: |
+          for f in tests/load/*.js; do
+            docker run --rm --network none -v "$PWD/tests/load:/scripts:ro" grafana/k6:1.4.2 inspect "/scripts/$(basename "$f")" >/dev/null
+            echo "ok $f"
+          done

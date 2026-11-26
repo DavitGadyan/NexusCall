@@ -1,0 +1,103 @@
+{{- $p := .Values.postgres -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $p.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  instances: {{ $p.instances }}
+  # Must include pgvector (ai-agent-service knowledge chunks). Pin by digest in production.
+  imageName: {{ $p.imageName }}
+  primaryUpdateStrategy: unsupervised
+  # Superuser access is used only by the bootstrap Job below (roles, databases, extensions).
+  enableSuperuserAccess: true
+  postgresql:
+    parameters:
+      max_connections: {{ $p.maxConnections | quote }}
+      shared_buffers: {{ $p.sharedBuffers | quote }}
+      log_min_duration_statement: "500"
+      log_connections: "on"
+      log_disconnections: "on"
+      password_encryption: scram-sha-256
+    pg_hba:
+      # TLS only for every remote client (build.md §5.5). The operator's own fixed rules come first.
+      - hostnossl all all all reject
+      - hostssl all all all scram-sha-256
+  managed:
+    roles:
+      # Used by Vault's database secrets engine to issue <db>_app/_inspector/_platform members and to
+      # rotate the static <db>_owner passwords. Not a superuser.
+      - name: vault_admin
+        ensure: present
+        login: true
+        createrole: true
+        connectionLimit: 20
+        passwordSecret: { name: {{ $p.vaultAdminSecret }} }
+      - name: keycloak
+        ensure: present
+        login: true
+        connectionLimit: 100
+        passwordSecret: { name: {{ $p.keycloakSecret }} }
+  storage:
+    size: {{ $p.storage.size }}
+    {{- with $p.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  walStorage:
+    size: {{ $p.walStorage.size }}
+    {{- with $p.walStorage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  resources:
+    {{- toYaml $p.resources | nindent 4 }}
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+  monitoring:
+    enablePodMonitor: true
+  {{- if $p.backup.enabled }}
+  # Continuous WAL archiving + base backups through the Barman Cloud plugin = point-in-time recovery.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ $p.name }}-backups
+  {{- end }}
+{{- if $p.backup.enabled }}
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ $p.name }}-backups
+  namespace: {{ .Release.Namespace }}
+spec:
+  retentionPolicy: {{ $p.backup.retentionPolicy | quote }}
+  configuration:
+    destinationPath: {{ required "postgres.backup.destinationPath is required (s3://bucket/prefix)" $p.backup.destinationPath | quote }}
+    {{- with $p.backup.endpointURL }}
+    endpointURL: {{ . | quote }}
+    {{- end }}
+    s3Credentials:
+      accessKeyId: { name: {{ $p.backup.s3CredentialsSecret }}, key: ACCESS_KEY_ID }
+      secretAccessKey: { name: {{ $p.backup.s3CredentialsSecret }}, key: ACCESS_SECRET_KEY }
+    wal:
+      compression: gzip
+      maxParallel: 4
+    data:
+      compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ $p.name }}-daily
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ $p.backup.schedule | quote }}
+  backupOwnerReference: self
+  immediate: true
+  cluster: { name: {{ $p.name }} }
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- end }}

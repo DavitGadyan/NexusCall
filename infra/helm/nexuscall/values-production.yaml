@@ -1,0 +1,45 @@
+# EXAMPLE production overrides. Replace every example.com / your-org value and pin images by digest.
+# No secrets belong here: credentials live in Vault (docs/DEPLOYMENT.md "Secrets bootstrap").
+global:
+  env: production
+  publicBaseUrl: https://app.nexuscall.example.com
+  publicHost: app.nexuscall.example.com
+  image:
+    registry: ghcr.io/your-org/nexuscall
+    tag: "0.1.0"
+    # digest: sha256:...   # preferred: immutable reference produced by CI
+  oidc:
+    issuer: https://id.nexuscall.example.com/realms/nexus
+  objectStore:
+    publicEndpointUrl: https://files.nexuscall.example.com
+  # Pod CIDR of the cluster (Traefik pods), trusted for X-Forwarded-For.
+  forwardedAllowIps: "10.244.0.0/16"
+
+ingress:
+  tls:
+    issuerRef: { name: letsencrypt-production, kind: ClusterIssuer }
+  rateLimit:
+    # One cloud load balancer in front of Traefik.
+    ipStrategyDepth: 1
+
+services:
+  notification-service:
+    env:
+      NOTIFICATION_FROM_ADDRESS: no-reply@nexuscall.example.com
+  # Sized for the MVP target of 200 concurrent calls (docs/IMPLEMENTATION_PLAN.md §1, tests/load).
+  voice-service:
+    replicas: 4
+    hpa: { minReplicas: 4, maxReplicas: 16 }
+  call-service:
+    hpa: { minReplicas: 3, maxReplicas: 12 }
+
+workerOverrides:
+  worker-calls: { replicas: 4 }
+  worker-voice-post: { replicas: 3 }
+  worker-email-send: { replicas: 3 }
+  worker-email-transactional: { replicas: 2 }
+  worker-ai-drafts: { replicas: 3 }
+
+metrics:
+  serviceMonitor: { enabled: true }
+  prometheusRule: { enabled: true }

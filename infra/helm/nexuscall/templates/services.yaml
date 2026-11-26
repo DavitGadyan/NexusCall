@@ -1,0 +1,62 @@
+{{- /*
+Kubernetes Services keep the Compose names (`crm-service:8000`, `web:3000`): nexus_core resolves peers as
+http://<name>:8000 (ServiceSettings.service_url) and tenant-service probes them by name. The stable
+Service selects only the stable track; a canary gets its own `<name>-canary` Service used by the edge.
+*/ -}}
+{{- $root := . -}}
+{{- $components := (include "nexuscall.components" . | fromYaml).items -}}
+{{- range $c := $components }}
+{{- if ne $c.kind "worker" }}
+{{- $tracks := list "stable" }}
+{{- if get $root.Values.canary $c.name }}{{- $tracks = append $tracks "canary" }}{{- end }}
+{{- range $track := $tracks }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ ternary (printf "%s-canary" $c.name) $c.name (eq $track "canary") }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nexuscall.labels" (dict "root" $root "c" $c "track" $track) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexuscall.selectorLabels" (dict "c" $c "track" $track) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $c.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexuscall-common
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  {{- include "nexuscall.commonEnv" . | nindent 2 }}
+{{- /* One ServiceAccount per identity (workers reuse their owning service's). No token is automounted;
+the Vault agent gets a short-lived, audience-bound projected token instead. */}}
+{{- $identities := list }}
+{{- range $c := $components }}{{- $identities = append $identities $c.identity }}{{- end }}
+{{- range $id := $identities | uniq }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $id }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nexuscall
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+    nexuscall.io/identity: {{ $id }}
+automountServiceAccountToken: false
+{{- end }}

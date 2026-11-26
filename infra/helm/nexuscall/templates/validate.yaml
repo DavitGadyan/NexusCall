@@ -1,0 +1,72 @@
+{{- /*
+Render-time guards. Every check fails the whole render, so a bad values file never reaches the cluster.
+*/ -}}
+{{- $g := .Values.global -}}
+{{- if not (has $g.env (list "staging" "production")) -}}
+{{- fail (printf "global.env must be staging or production (got %q); development uses Docker Compose" $g.env) -}}
+{{- end -}}
+{{- if ne $g.providerMode "real" -}}
+{{- fail (printf "global.providerMode must be \"real\" (got %q): fake providers are never deployed to %s (build.md §9.3, ADR-0002)" $g.providerMode $g.env) -}}
+{{- end -}}
+{{- if not $g.image.registry -}}
+{{- fail "global.image.registry is required (e.g. ghcr.io/your-org/nexuscall)" -}}
+{{- end -}}
+{{- if and (not $g.image.digest) (or (not $g.image.tag) (has $g.image.tag (list "dev" "latest" "ci"))) -}}
+{{- fail "global.image.tag must be a release tag (not empty, dev, latest or ci), or set global.image.digest" -}}
+{{- end -}}
+{{- if not (hasPrefix "https://" $g.publicBaseUrl) -}}
+{{- fail "global.publicBaseUrl must be an https:// URL" -}}
+{{- end -}}
+{{- if not $g.publicHost -}}
+{{- fail "global.publicHost is required (the host name in global.publicBaseUrl)" -}}
+{{- end -}}
+{{- if not (contains $g.publicHost $g.publicBaseUrl) -}}
+{{- fail "global.publicHost must be the host of global.publicBaseUrl" -}}
+{{- end -}}
+{{- if not (hasPrefix "https://" $g.oidc.issuer) -}}
+{{- fail "global.oidc.issuer must be the public https:// issuer URL of the nexus realm" -}}
+{{- end -}}
+{{- $forbidden := .Values.generatedNotes.forbiddenEnv | default list -}}
+{{- $components := (include "nexuscall.components" . | fromYaml).items -}}
+{{- range $c := $components }}
+{{- range $k, $v := $c.env }}
+{{- if eq $k "PROVIDER_MODE" }}
+{{- fail (printf "%s: PROVIDER_MODE must not be overridden per component" $c.name) }}
+{{- end }}
+{{- if eq $k "ENV" }}
+{{- fail (printf "%s: ENV must not be overridden per component" $c.name) }}
+{{- end }}
+{{- if has $k $forbidden }}
+{{- fail (printf "%s: %s is development-only and must not be set in %s" $c.name $k $g.env) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $svc, $keys := .Values.generatedNotes.requiredEnv }}
+{{- $s := get $.Values.services $svc }}
+{{- if and $s $s.enabled }}
+{{- range $keys }}
+{{- if not (get $s.env .) }}
+{{- fail (printf "services.%s.env.%s is required in %s" $svc . $g.env) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $name, $cfg := .Values.canary }}
+{{- $found := or (hasKey $.Values.services $name) (eq $name "web") }}
+{{- range $.Values.workers }}{{- if eq .name $name }}{{- $found = true }}{{- end }}{{- end }}
+{{- if not $found }}
+{{- fail (printf "canary.%s: no such component" $name) }}
+{{- end }}
+{{- if not (or $cfg.tag $cfg.digest) }}
+{{- fail (printf "canary.%s: set tag or digest" $name) }}
+{{- end }}
+{{- end }}
+{{- /* Refuse to install into a namespace that does not enforce the restricted Pod Security level.
+`lookup` returns nothing under `helm template`, so this only runs against a live cluster. */}}
+{{- $ns := lookup "v1" "Namespace" "" .Release.Namespace }}
+{{- if and $ns (not .Values.namespace.create) }}
+{{- $level := get (default (dict) $ns.metadata.labels) "pod-security.kubernetes.io/enforce" }}
+{{- if ne $level "restricted" }}
+{{- fail (printf "namespace %s must carry pod-security.kubernetes.io/enforce=restricted (got %q)" .Release.Namespace $level) }}
+{{- end }}
+{{- end }}
