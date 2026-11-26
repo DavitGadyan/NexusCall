@@ -117,6 +117,7 @@ All paths are under `secret/<env>/`, set with `vault kv put secret/production/<p
 | `platform/<service>/s3` | `access_key_id`, `secret_access_key` | tenant, crm, voice, ai-agent, email-inbox, analytics, audit |
 | `platform/shared/redis` | `password` | Same value as Secret `redis-auth` |
 | `platform/call-service/stream-token` **and** `platform/voice-service/stream-token` | `secret` | **One shared value in both paths.** call-service signs media-stream tokens and voice-service verifies them. Rotate both together ([runbook](runbooks/signing-and-session-keys.md)) |
+| `platform/integration-service/hmac-key` | `secret` | HMAC key for credential-test idempotency hashes (32 random bytes, hex). integration-service refuses to start in staging/production without it |
 | `platform/web-bff/oidc` | `client_secret` | `web-bff` client |
 | `platform/web-bff/session` | `key` | 64 hex characters |
 | `platform/tenant-service/rabbitmq-ops` | `username=nexus-ops`, `password` | Copy from Secret `nexus-ops-user-credentials` (topology operator) |

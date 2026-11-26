@@ -8,7 +8,7 @@ http:
       middlewares: [secure-headers, rate-limit, body-limit]
       entryPoints: [web]
     tenant-service:
-      rule: "PathPrefix(`/api/v1/me`) || PathPrefix(`/api/v1/tenants`) || PathPrefix(`/api/v1/memberships`) || PathPrefix(`/api/v1/invitations`) || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`) || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`) || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`) || PathPrefix(`/api/v1/platform/service-accounts`)"
+      rule: "PathPrefix(`/api/v1/me`) || PathPrefix(`/api/v1/tenants`) || PathPrefix(`/api/v1/memberships`) || PathPrefix(`/api/v1/invitations`) || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`) || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`) || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`) || PathPrefix(`/api/v1/platform/service-accounts`) || PathPrefix(`/api/v1/platform/infra`)"
       priority: 100
       service: tenant-service
       middlewares: [secure-headers, rate-limit, body-limit]

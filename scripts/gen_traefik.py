@@ -24,6 +24,7 @@ ROUTES = {
         "/api/v1/platform/support-grants",
         "/api/v1/platform/rls",
         "/api/v1/platform/service-accounts",
+        "/api/v1/platform/infra",
     ],
     "crm-service": [
         "/api/v1/tags",

@@ -862,7 +862,10 @@ services:
     - otel
     externalEgress: true
     env: {}
-    secretEnv: {}
+    secretEnv:
+      INTEGRATION_HMAC_KEY:
+        path: platform/integration-service/hmac-key
+        field: secret
   analytics-service:
     enabled: true
     image: analytics-service
@@ -1203,6 +1206,38 @@ workers:
   terminationGracePeriodSeconds: 1830
   env: {}
   secretEnv: {}
+- name: worker-integrations
+  owner: integration-service
+  command:
+  - celery
+  - -A
+  - integration_service.worker
+  - worker
+  - -Q
+  - integrations.webhooks
+  - --concurrency
+  - '4'
+  - --without-heartbeat
+  - --without-gossip
+  - --without-mingle
+  queues:
+  - integrations.webhooks
+  profiles:
+  - platform
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  terminationGracePeriodSeconds: 330
+  env: {}
+  secretEnv:
+    INTEGRATION_HMAC_KEY:
+      path: platform/integration-service/hmac-key
+      field: secret
 - name: worker-analytics
   owner: analytics-service
   command:
@@ -1250,7 +1285,7 @@ routes:
     || PathPrefix(`/api/v1/roles`) || PathPrefix(`/api/v1/permissions`) || PathPrefix(`/api/v1/teams`) || PathPrefix(`/api/v1/settings`)
     || PathPrefix(`/api/v1/platform/tenants`) || PathPrefix(`/api/v1/platform/users`) || PathPrefix(`/api/v1/platform/iam`)
     || PathPrefix(`/api/v1/platform/settings`) || PathPrefix(`/api/v1/platform/support-grants`) || PathPrefix(`/api/v1/platform/rls`)
-    || PathPrefix(`/api/v1/platform/service-accounts`)
+    || PathPrefix(`/api/v1/platform/service-accounts`) || PathPrefix(`/api/v1/platform/infra`)
   priority: 100
   entryPoints:
   - public
@@ -1444,6 +1479,17 @@ routes:
   - rate-limit
   - body-limit
   kind: standard
+- name: integration-service-webhooks
+  service: integration-service
+  match: PathPrefix(`/webhooks/hubspot`)
+  priority: 150
+  entryPoints:
+  - public
+  middlewares:
+  - secure-headers
+  - rate-limit-webhooks
+  - body-limit-webhooks
+  kind: webhook
 - name: notification-service
   service: notification-service
   match: PathPrefix(`/api/v1/notifications`)
@@ -1533,7 +1579,6 @@ generatedNotes:
   - MAILPIT_SMTP_HOST
   - MCP_ALLOW_HTTP_PRIVATE
   queuesWithoutWorker:
-  - integrations.webhooks
   - notifications.send
   externalEgressReasons:
     call-service: Twilio REST API

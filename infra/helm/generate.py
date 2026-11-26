@@ -67,6 +67,8 @@ PROD_ENV: dict[str, tuple[str, Any]] = {
     "WEBHOOK_BASE_URL": ("value", "{{ .Values.global.publicBaseUrl }}"),
     "MEDIA_STREAM_URL": ("value", "wss://{{ .Values.global.publicHost }}/media/twilio"),
     "STREAM_TOKEN_SECRET": ("secret", ("platform/{service}/stream-token", "secret")),
+    # Keys the credential-test idempotency HMAC; staging/production refuse to start without it.
+    "INTEGRATION_HMAC_KEY": ("secret", ("platform/{service}/hmac-key", "secret")),
 }
 # Keys that must never reach a staging/production pod (validated again in the chart templates).
 FORBIDDEN_ENV = sorted(k for k, (mode, _) in PROD_ENV.items() if mode == "drop")
@@ -327,6 +329,21 @@ def components() -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, list[s
 
 
 # --------------------------------------------------------------------------------------------------
+def _integration_platform_rules(text: str) -> list[dict[str, Any]]:
+    """Expand the loop in bootstrap.sh that grants integration-service its catalogued platform paths."""
+    m = re.search(r'^INTEGRATION_PLATFORM_PAIRS="([^"]*)"', text, re.M)
+    if m is None:
+        fail("INTEGRATION_PLATFORM_PAIRS not found in bootstrap.sh")
+    rules: list[dict[str, Any]] = []
+    for pair in m.group(1).split():  # type: ignore[union-attr]
+        for name in (pair, f"{pair}-next"):
+            rules.append(
+                {"path": f"secret/data/{{env}}/platform/{name}", "capabilities": ["create", "update", "read", "delete"]}
+            )
+            rules.append({"path": f"secret/metadata/{{env}}/platform/{name}", "capabilities": ["read", "delete"]})
+    return rules
+
+
 def vault_policies() -> dict[str, list[dict[str, Any]]]:
     """Parse every `write_policy <name> <path stanza>...` call in infra/vault/bootstrap.sh."""
     text = (ROOT / "infra" / "vault" / "bootstrap.sh").read_text()
@@ -351,6 +368,9 @@ def vault_policies() -> dict[str, list[dict[str, Any]]]:
         name, *args = shlex.split(line)[1:]
         rules = [{"path": "secret/data/{env}/platform/" + name + "/*", "capabilities": ["read"]}]
         for raw_arg in args:
+            if raw_arg == "${INTEGRATION_PLATFORM_PATHS}":
+                rules += _integration_platform_rules(text)
+                continue
             arg = raw_arg
             for k, v in macros.items():
                 arg = arg.replace(k, v)

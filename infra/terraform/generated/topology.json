@@ -149,7 +149,7 @@
       "write": "^(events\\.booking_service.*|nexus\\.(events|tasks|dlx)|amq\\.default)$",
       "read": "^(events\\.booking_service.*|nexus\\.(events|tasks|dlx))$",
       "topic_exchange": "nexus.events",
-      "topic_write": "^(audit\\.event|booking(\\..*)?)$",
+      "topic_write": "^(audit\\.event|booking(\\..*)?|notification(\\..*)?)$",
       "topic_read": ".*"
     },
     "email-service": {
@@ -173,7 +173,7 @@
       "write": "^(events\\.integration_service.*|integrations\\..*|celery.*|celeryev.*|.*\\.pidbox|nexus\\.(events|tasks|dlx)|amq\\.default)$",
       "read": "^(events\\.integration_service.*|integrations\\..*|celery.*|celeryev.*|.*\\.pidbox|nexus\\.(events|tasks|dlx))$",
       "topic_exchange": "nexus.events",
-      "topic_write": "^(audit\\.event|integration(\\..*)?|webhook(\\..*)?)$",
+      "topic_write": "^(audit\\.event|integration(\\..*)?|webhook(\\..*)?|notification(\\..*)?)$",
       "topic_read": ".*"
     },
     "notification-service": {
@@ -560,6 +560,358 @@
         "capabilities": [
           "read",
           "list"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/ai-gateway/anthropic",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/ai-gateway/anthropic",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/ai-gateway/anthropic-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/ai-gateway/anthropic-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/ai-gateway/voyage",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/ai-gateway/voyage",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/ai-gateway/voyage-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/ai-gateway/voyage-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/deepgram",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/deepgram",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/deepgram-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/deepgram-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/elevenlabs",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/elevenlabs",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/elevenlabs-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/elevenlabs-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/twilio",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/twilio",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/voice-service/twilio-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/voice-service/twilio-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/call-service/twilio",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/call-service/twilio",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/call-service/twilio-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/call-service/twilio-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/email-service/ses",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/email-service/ses",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/email-service/ses-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/email-service/ses-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/email-inbox-service/ses",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/email-inbox-service/ses",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/email-inbox-service/ses-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/email-inbox-service/ses-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/notification-service/ses",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/notification-service/ses",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/notification-service/ses-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/notification-service/ses-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/integration-service/google_oauth_client",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/integration-service/google_oauth_client",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/integration-service/google_oauth_client-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/integration-service/google_oauth_client-next",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/integration-service/hubspot_oauth_client",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/integration-service/hubspot_oauth_client",
+        "capabilities": [
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/data/{env}/platform/integration-service/hubspot_oauth_client-next",
+        "capabilities": [
+          "create",
+          "update",
+          "read",
+          "delete"
+        ]
+      },
+      {
+        "path": "secret/metadata/{env}/platform/integration-service/hubspot_oauth_client-next",
+        "capabilities": [
+          "read",
+          "delete"
         ]
       },
       {
